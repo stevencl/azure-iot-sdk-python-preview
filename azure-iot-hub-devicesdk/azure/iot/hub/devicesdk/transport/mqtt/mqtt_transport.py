@@ -266,7 +266,7 @@ class MQTTTransport(AbstractTransport):
     def _get_telemetry_topic(self):
         topic = "devices/" + self._auth_provider.device_id
 
-        if self._auth_provider.module_id is not None:
+        if self._auth_provider.module_id:
             topic += "/modules/" + self._auth_provider.module_id
 
         topic += "/messages/events/"
@@ -274,6 +274,9 @@ class MQTTTransport(AbstractTransport):
 
     def _encode_properties(self, message_to_send, topic):
         system_properties = dict()
+        if message_to_send.output_name:
+            system_properties["$.on"] = message_to_send.output_name
+
         if message_to_send.message_id:
             system_properties["$.mid"] = message_to_send.message_id
 
