@@ -7,7 +7,6 @@ import os
 import copy
 import pytest
 
-import e2e_convenience
 from azure.iot.provisioning.servicesdk import (
     ProvisioningServiceClient,
     QuerySpecification,
