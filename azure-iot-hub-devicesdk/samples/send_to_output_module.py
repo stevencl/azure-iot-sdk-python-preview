@@ -5,14 +5,14 @@
 import os
 import time
 from azure.iot.hub.devicesdk.module_client import ModuleClient
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_environment
 from azure.iot.hub.devicesdk.message import Message
 import uuid
 
 # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
-conn_str = os.getenv("IOTHUB_MODULE_CONNECTION_STRING")
+# conn_str = os.getenv("IOTHUB_MODULE_CONNECTION_STRING")
 # The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
-auth_provider = from_connection_string(conn_str)
+auth_provider = from_environment()
 # For now, the SDK only supports MQTT as a protocol. the client object is used to interact with your Azure IoT hub.
 # It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
 module_client = ModuleClient.from_authentication_provider(auth_provider, "mqtt")
@@ -24,6 +24,7 @@ def connection_state_callback(status):
 
 
 # Register the connection state callback with the client...
+# it is not necessary to do so , but always better to know connection was successful
 module_client.on_connection_state = connection_state_callback
 
 # ... and connect the client.

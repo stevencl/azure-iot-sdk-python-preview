@@ -6,6 +6,7 @@
 import logging
 from threading import Event
 from .transport.mqtt.mqtt_transport import MQTTTransport
+from .message import Message
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,8 @@ class InternalClient(object):
 
         :param message: The actual message to send.
         """
+        if not isinstance(message, Message):
+            message = Message(message)
 
         send_complete = Event()
 

@@ -9,7 +9,9 @@ from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTranspo
 from azure.iot.hub.devicesdk.message import Message
 import pytest
 from mock import MagicMock, patch
+import azure.iot.hub.devicesdk.message
 
+# import azure.iot.hub.devicesdk.message as mes
 
 connection_string_format = "HostName={};DeviceId={};ModuleId={};SharedAccessKey={}"
 shared_access_key = "Zm9vYmFy"
@@ -42,6 +44,9 @@ class FakeTransport(AbstractTransport):
     def send_event(self, event, callback):
         callback()
 
+    def send_output_event(self, event, callback):
+        callback()
+
     def disconnect(self, callback):
         callback()
 
@@ -61,12 +66,13 @@ def test_module_client_send_to_output_assigns_output_name_and_in_turn_calls_tran
     client.send_to_output(event, output_name)
 
     assert event.output_name == output_name
-    assert mock_transport.send_event.call_count == 1
-    assert mock_transport.send_event.call_args[0][0] == event
+    assert mock_transport.send_output_event.call_count == 1
+    assert mock_transport.send_output_event.call_args[0][0] == event
 
 
 @patch("azure.iot.hub.devicesdk.module_client.isinstance")
-@patch("azure.iot.hub.devicesdk.module_client.Message")
+@patch.object(azure.iot.hub.devicesdk.module_client, "Message")
+# @patch("azure.iot.hub.devicesdk.module_client.Message")
 def test_module_client_send_string_constructs_message_assigns_output_name_and_calls_transport(
     mock_message_constructor, mock_instance_method, authentication_provider, mock_transport
 ):
@@ -79,5 +85,5 @@ def test_module_client_send_string_constructs_message_assigns_output_name_and_ca
     client.send_to_output(event, output_name)
 
     assert mock_message_constructor.return_value.output_name == output_name
-    assert mock_transport.send_event.call_count == 1
-    assert mock_transport.send_event.call_args[0][0] == mock_message_constructor.return_value
+    assert mock_transport.send_output_event.call_count == 1
+    assert mock_transport.send_output_event.call_args[0][0] == mock_message_constructor.return_value

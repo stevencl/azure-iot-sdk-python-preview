@@ -221,7 +221,7 @@ class MQTTTransport(AbstractTransport):
         available.
         """
         logger.info("checking event queue")
-        encoded_topic = self.topic
+        # encoded_topic = self.topic
         while True:
             try:
                 (message_to_send, callback) = self._event_queue.get_nowait()
@@ -230,10 +230,12 @@ class MQTTTransport(AbstractTransport):
                 return
             logger.info("retrieved event from queue. publishing.")
 
-            if isinstance(message_to_send, Message):
-                encoded_topic = self._encode_properties(message_to_send, self.topic)
-            else:
-                message_to_send = Message(message_to_send)
+            # if isinstance(message_to_send, Message):
+            #     encoded_topic = self._encode_properties(message_to_send, self.topic)
+            # else:
+            #     message_to_send = Message(message_to_send)
+
+            encoded_topic = self._encode_properties(message_to_send, self.topic)
 
             mid = self._mqtt_provider.publish(encoded_topic, message_to_send.data)
             self._event_callback_map[mid] = callback
@@ -321,6 +323,9 @@ class MQTTTransport(AbstractTransport):
         self._trig_disconnect()
 
     def send_event(self, message, callback=None):
+        self._trig_send_event(message, callback)
+
+    def send_output_event(self, message, callback=None):
         self._trig_send_event(message, callback)
 
     def _on_shared_access_string_updated(self):
