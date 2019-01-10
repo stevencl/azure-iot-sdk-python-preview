@@ -221,7 +221,6 @@ class MQTTTransport(AbstractTransport):
         available.
         """
         logger.info("checking event queue")
-        # encoded_topic = self.topic
         while True:
             try:
                 (message_to_send, callback) = self._event_queue.get_nowait()
@@ -229,11 +228,6 @@ class MQTTTransport(AbstractTransport):
                 logger.info("done checking queue")
                 return
             logger.info("retrieved event from queue. publishing.")
-
-            # if isinstance(message_to_send, Message):
-            #     encoded_topic = self._encode_properties(message_to_send, self.topic)
-            # else:
-            #     message_to_send = Message(message_to_send)
 
             encoded_topic = self._encode_properties(message_to_send, self.topic)
 

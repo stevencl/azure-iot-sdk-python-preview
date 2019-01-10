@@ -71,8 +71,7 @@ def test_module_client_send_to_output_assigns_output_name_and_in_turn_calls_tran
 
 
 @patch("azure.iot.hub.devicesdk.module_client.isinstance")
-@patch.object(azure.iot.hub.devicesdk.module_client, "Message")
-# @patch("azure.iot.hub.devicesdk.module_client.Message")
+@patch("azure.iot.hub.devicesdk.module_client.Message")
 def test_module_client_send_string_constructs_message_assigns_output_name_and_calls_transport(
     mock_message_constructor, mock_instance_method, authentication_provider, mock_transport
 ):
