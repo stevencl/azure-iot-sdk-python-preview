@@ -90,6 +90,24 @@ class InternalClient(object):
         self._transport.send_event(message, callback)
         send_complete.wait()
 
+    def add_method_callback(self, method_name, method_callback):
+        action_complete = Event()
+
+        def completion_callback():
+            action_complete.set()
+
+        self._transport.add_method_callback(method_name, method_callback, completion_callback)
+        action_complete.wait()
+
+    def remove_method_callback(self, method_name):
+        action_complete = Event()
+
+        def completion_callback():
+            action_complete.set()
+
+        self._transport.remove_method_callback(method_name, completion_callback)
+        action_complete.wait()
+
     def _emit_connection_status(self):
         """
         The connection status is emitted whenever the client on the module gets connected or disconnected.

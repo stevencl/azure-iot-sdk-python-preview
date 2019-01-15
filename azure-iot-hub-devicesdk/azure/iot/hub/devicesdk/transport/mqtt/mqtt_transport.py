@@ -20,6 +20,38 @@ The below import is for generating the state machine graph.
 
 logger = logging.getLogger(__name__)
 
+METHOD_QOS = 0
+METHOD_TOPIC = "$iothub/methods/POST/#"
+
+
+class QueuedAction:
+    pass
+
+
+class QueuedTelemetryAction(QueuedAction):
+    def __init__(self, message, callback):
+        self.message = message
+        self.callback = callback
+
+
+class QueuedSubscribeAction(QueuedAction):
+    def __init__(self, topic, qos, callback):
+        self.topic = topic
+        self.qos = qos
+        self.callback = callback
+
+
+class QueuedUnsubscribeAction(QueuedAction):
+    def __init__(self, topic, callback):
+        self.topic = topic
+        self.callback = callback
+
+
+class QueuedMethodReponseAction(QueuedAction):
+    def __init__(self, method_response, callback):
+        self.method_response = method_response
+        self.callback = callback
+
 
 class MQTTTransport(AbstractTransport):
     def __init__(self, auth_provider):
@@ -33,8 +65,9 @@ class MQTTTransport(AbstractTransport):
         self.on_transport_connected = None
         self.on_transport_disconnected = None
         self.on_event_sent = None
-        self._event_queue = queue.LifoQueue()
-        self._event_callback_map = {}
+        self._action_queue = queue.LifoQueue()
+        self._action_callback_map = {}
+        self._method_callback_map = {}
         self._connect_callback = None
         self._disconnect_callback = None
 
@@ -52,7 +85,7 @@ class MQTTTransport(AbstractTransport):
                 "trigger": "_trig_provider_connect_complete",
                 "source": "connecting",
                 "dest": "connected",
-                "after": "_publish_events_in_queue",
+                "after": "_do_actions_in_queue",
             },
             {
                 "trigger": "_trig_disconnect",
@@ -71,22 +104,22 @@ class MQTTTransport(AbstractTransport):
                 "dest": "disconnected",
             },
             {
-                "trigger": "_trig_send_event",
+                "trigger": "_trig_queue_action",
                 "source": "connected",
-                "before": "_add_event_to_queue",
+                "before": "_add_action_to_queue",
                 "dest": None,
-                "after": "_publish_events_in_queue",
+                "after": "_do_actions_in_queue",
             },
             {
-                "trigger": "_trig_send_event",
+                "trigger": "_trig_queue_action",
                 "source": "connecting",
-                "before": "_add_event_to_queue",
+                "before": "_add_action_to_queue",
                 "dest": None,
             },
             {
-                "trigger": "_trig_send_event",
+                "trigger": "_trig_queue_action",
                 "source": "disconnected",
-                "before": "_add_event_to_queue",
+                "before": "_add_action_to_queue",
                 "dest": "connecting",
                 "after": "_call_provider_connect",
             },
@@ -198,21 +231,51 @@ class MQTTTransport(AbstractTransport):
         """
         if self.on_event_sent:
             self.on_event_sent()
-        if mid in self._event_callback_map:
-            callback = self._event_callback_map[mid]
-            del self._event_callback_map[mid]
+        if mid in self._action_callback_map:
+            callback = self._action_callback_map[mid]
+            del self._action_callback_map[mid]
             callback()
+        else:
+            # TODO: tests for unkonwn MID cases
+            logger.warning("PUBACK received with unknown MID: %s", str(mid))
 
-    def _add_event_to_queue(self, event_data):
-        """
-        Queue an event for sending later.  All events that get sent end up going into
-        this queue, even if they're going to be sent immediately.
-        """
-        logger.info("Adding event to queue for later sending")
-        # TODO: throw here if event_data.args[0] is not an event/message
-        self._event_queue.put_nowait((event_data.args[0], event_data.args[1]))
+    def _on_provider_subscribe_complete(self, mid):
+        if mid in self._action_callback_map:
+            callback = self._action_callback_map[mid]
+            del self._action_callback_map[mid]
+            callback()
+        else:
+            # TODO: tests for unkonwn MID cases
+            logger.warning("SUBACK received with unknown MID: %s", str(mid))
 
-    def _publish_events_in_queue(self, event_data):
+    def _on_provider_unsubscribe_complete(self, mid):
+        if mid in self._action_callback_map:
+            callback = self._action_callback_map[mid]
+            del self._action_callback_map[mid]
+            callback()
+        else:
+            # TODO: tests for unkonwn MID cases
+            logger.warning("UNSUBACK received with unknown MID: %s", str(mid))
+
+    def _on_provider_message(mid, topic, message):
+        pass
+
+    def _add_action_to_queue(self, event_data):
+        """
+        Queue an action for running later.  All actions that need to run while connected end up in
+        this queue, even if they're going to be run immediately.
+        """
+        logger.info("Adding action to queue for running sending")
+        if isinstance(event_data.args[0], QueuedAction):
+            # TODO: some actions are more important than others, so maybe we need a priority queue of some sort.
+            # for example, if we have a subscribe action and a get-twin action, we want to do the subscribe first
+            # even if we're not subcribing for a twin-related topic, it can't hurt to do the subscribe first.
+            self._action_queue.put_nowait(event_data.args[0])
+        else:
+            assert False
+            logger.error("trying to queue invalid action.  ignoring")
+
+    def _do_actions_in_queue(self, event_data):
         """
         Publish any events that are waiting in the event queue.  This function
         actually calls down into the provider to publish the events.  For each
@@ -221,22 +284,48 @@ class MQTTTransport(AbstractTransport):
         available.
         """
         logger.info("checking event queue")
-        encoded_topic = self.topic
         while True:
             try:
-                (message_to_send, callback) = self._event_queue.get_nowait()
+                action = self._action_queue.get_nowait()
             except queue.Empty:
                 logger.info("done checking queue")
                 return
-            logger.info("retrieved event from queue. publishing.")
 
-            if isinstance(message_to_send, Message):
-                encoded_topic = self._encode_properties(message_to_send, self.topic)
+            if isinstance(action, QueuedTelemetryAction):
+                logger.info("running QueuedTelemetryAction")
+                message_to_send = action.message
+                base_topic = self._get_telemetry_topic()
+
+                if isinstance(message_to_send, Message):
+                    encoded_topic = self._encode_properties(message_to_send, base_topic)
+                else:
+                    encoded_topic = base_topic
+                    message_to_send = Message(message_to_send)
+
+                mid = self._mqtt_provider.publish(encoded_topic, message_to_send.data)
+                # todo rename callback to completion_callback?  rename action_callback_map simililary
+                self._action_callback_map[mid] = action.callback
+
+            elif isinstance(action, QueuedSubscribeAction):
+                # todo: do something to verify that a subscription action will survive a reconnection.  Is this what the session flag is for?
+                logger.info("running QueuedSubscribeAction")
+                mid = self._mqtt_provider.subscribe(action.topic, action.qos)
+                self._action_callback_map[mid] = action.callback
+
+            elif isinstance(action, QueuedUnsubscribeAction):
+                logger.info("running QueuedUnsubscribeAction")
+                mid = self._mqtt_provider.unsubscribe(action.topic)
+                self._action_callback_map[mid] = action.callback
+
+            elif isinstance(action, QueuedMethodReponseAction):
+                logger.info("running QueuedUnsubscribeAction")
+                topic = "TODO"
+                mid = self._mqtt_provider.publish(topic, action.method_response)
+                # todo rename callback to completion_callback?  rename action_callback_map simililary
+                self._action_callback_map[mid] = action.callback
+
             else:
-                message_to_send = Message(message_to_send)
-
-            mid = self._mqtt_provider.publish(encoded_topic, message_to_send.data)
-            self._event_callback_map[mid] = callback
+                logger.error("Removed unknown action type from queue.")
 
     def _create_mqtt_provider(self):
         client_id = self._auth_provider.device_id
@@ -262,6 +351,9 @@ class MQTTTransport(AbstractTransport):
         self._mqtt_provider.on_mqtt_connected = self._on_provider_connect_complete
         self._mqtt_provider.on_mqtt_disconnected = self._on_provider_disconnect_complete
         self._mqtt_provider.on_mqtt_published = self._on_provider_publish_complete
+        self._mqtt_provider.on_mqtt_subscribed = self._on_provider_subscribe_complete
+        self._mqtt_provider.on_mqtt_unsubscribed = self._on_provider_unsubscribe_complete
+        self._mqtt_provider.on_mqtt_message = self._on_provider_message
 
     def _get_telemetry_topic(self):
         topic = "devices/" + self._auth_provider.device_id
@@ -318,7 +410,28 @@ class MQTTTransport(AbstractTransport):
         self._trig_disconnect()
 
     def send_event(self, message, callback=None):
-        self._trig_send_event(message, callback)
+        action = QueuedTelemetryAction(message, callback)
+        self._trig_queue_action(action)
+
+    # TODO: some wierd actions to consider:
+    # how stingy should be be with sending SUBSCRIBE packets?  It doesn't hurt, and it could be more robust in case the transport isn't subscribed when it thinks it should be.
+    # what if we're not connected and we call add_method_callback, but there are other method callbacks in the array.  Should this connect the transport?  If so, being stingy with SUBSCRIBE packets gets harder because we don't subscribe until later
+
+    def add_method_callback(self, method_name, method_callback, completion_callback):
+        self._method_callback_map[method_name] = method_callback
+        if len(self._method_callback_map) == 1:
+            action = QueuedSubscribeAction(METHOD_TOPIC, METHOD_QOS, completion_callback)
+            self._trig_queue_action(action)
+        else:
+            completion_callback()
+
+    def remove_method_callback(self, method_name, completion_callback):
+        del self._method_callback_map[method_name]
+        if len(self._method_callback_map) == 0:
+            action = QueuedUnsubscribeAction(METHOD_TOPIC, completion_callback)
+            self._trig_queue_action(action)
+        else:
+            completion_callback()
 
     def _on_shared_access_string_updated(self):
         self._trig_on_shared_access_string_updated()

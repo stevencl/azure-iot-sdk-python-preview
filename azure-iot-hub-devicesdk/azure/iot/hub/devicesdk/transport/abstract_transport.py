@@ -35,3 +35,11 @@ class AbstractTransport:
         Disconnect from the specific messaging system used by the specific transport protocol
         """
         pass
+
+    @abc.abstractmethod
+    def add_method_callback(self, method_name, method_callback):
+        pass
+
+    @abc.abstractmethod
+    def remove_method_callback(self, method_name):
+        pass

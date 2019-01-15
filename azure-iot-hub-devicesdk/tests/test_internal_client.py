@@ -43,6 +43,12 @@ class FakeTransport(AbstractTransport):
     def disconnect(self, callback):
         callback()
 
+    def add_method_callback(self, method_name, method_callback):
+        pass
+
+    def remove_method_callback(self, method_name):
+        pass
+
 
 @pytest.fixture(scope="function")
 def mock_transport(authentication_provider):

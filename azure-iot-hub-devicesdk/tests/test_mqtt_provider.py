@@ -52,7 +52,7 @@ def test_connect_triggers_client_connect(MockMqttClient, MockSsl):
         ("on_connect", [None, None, None, 0], "on_mqtt_connected", []),
         ("on_disconnect", [None, None, 0], "on_mqtt_disconnected", []),
         ("on_publish", [None, None, 9], "on_mqtt_published", [9]),
-        ("on_subscribe", [None, None, 0], "on_mqtt_subscribed", []),
+        ("on_subscribe", [None, None, 0, 0], "on_mqtt_subscribed", [0]),
     ],
 )
 def test_mqtt_client_callback_triggers_provider_callback(

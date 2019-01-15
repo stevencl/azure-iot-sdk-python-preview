@@ -34,6 +34,8 @@ class MQTTProvider(object):
         self.on_mqtt_disconnected = None
         self.on_mqtt_published = None
         self.on_mqtt_subscribed = None
+        self.on_mqtt_unsubscribed = None
+        self.on_mqtt_message = None
 
         self._create_mqtt_client()
 
@@ -71,19 +73,39 @@ class MQTTProvider(object):
                 logger.error("Unexpected error calling on_mqtt_published")
                 logger.error(traceback.format_exc())
 
-        def on_subscribe_callback(client, userdata, mid):
-            logger.info("suback received")
+        def on_subscribe_callback(client, userdata, mid, granted_qos):
+            logger.info("suback received for %s", str(mid))
             # TODO: how to do failure?
             try:
-                self.on_mqtt_subscribed()
+                self.on_mqtt_subscribed(mid)
             except:  # noqa: E722 do not use bare 'except'
                 logger.error("Unexpected error calling on_mqtt_subscribed")
+                logger.error(traceback.format_exc())
+
+        def on_unsubscribe_callback(client, userdata, mid):
+            logger.info("unsuback received for %s", str(mid))
+            # TODO: how to do failure?
+            try:
+                self.on_mqtt_unsubscribed(mid)
+            except:  # noqa: E722 do not use bare 'except'
+                logger.error("Unexpected error calling on_mqtt_subscribed")
+                logger.error(traceback.format_exc())
+
+        def on_message_callback(client, userdata, message):
+            logger.info("message received on %s", message.topic)
+            # TODO: how to do failure?
+            try:
+                self.on_mqtt_message(message.topic, message.payload)
+            except:  # noqa: E722 do not use bare 'except'
+                logger.error("Unexpected error calling on_mqtt_message")
                 logger.error(traceback.format_exc())
 
         self._mqtt_client.on_connect = on_connect_callback
         self._mqtt_client.on_disconnect = on_disconnect_callback
         self._mqtt_client.on_publish = on_publish_callback
         self._mqtt_client.on_subscribe = on_subscribe_callback
+        self._mqtt_client.on_unsubscribe = on_unsubscribe_callback
+        self._mqtt_client.on_message = on_message_callback
 
         logger.info("Created MQTT provider, assigned callbacks")
 
@@ -134,4 +156,14 @@ class MQTTProvider(object):
         """
         logger.info("sending")
         message_info = self._mqtt_client.publish(topic=topic, payload=message_payload, qos=1)
+        return message_info.mid
+
+    def subscrbe(self, topic, qos):
+        logger.info("subscribing to %s with qos %s", topic, str(qos))
+        message_info = self._mqtt_client.subscribe(topic, qos)
+        return message_info.mid
+
+    def unsubscribe(self, topic):
+        logger.info("unsubscribing from %s", topic)
+        message_info = self._mqtt_client.unsubscribe(topic)
         return message_info.mid

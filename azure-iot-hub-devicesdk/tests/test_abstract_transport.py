@@ -11,5 +11,5 @@ def test_raises_exception_on_init_of_abstract_transport():
     with pytest.raises(TypeError) as error:
         AbstractTransport()
     msg = str(error.value)
-    expected_msg = "Can't instantiate abstract class AbstractTransport with abstract methods connect, disconnect, send_event"
+    expected_msg = "Can't instantiate abstract class AbstractTransport with abstract methods add_method_callback, connect, disconnect, remove_method_callback, send_event"
     assert msg == expected_msg
