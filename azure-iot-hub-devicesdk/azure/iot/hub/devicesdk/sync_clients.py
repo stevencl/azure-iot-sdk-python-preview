@@ -1,7 +1,8 @@
 import logging
 import abc
 import six
-from threading import Event, Queue
+from threading import Event
+from queue import Queue
 from .transport.mqtt import MQTTTransport
 from .message import Message
 
@@ -185,7 +186,7 @@ class GenericClientSync(GenericClient):
             self.on_input_message = handler_for_feature
             self._transport.enable_input_messages(callback)
         elif feature_name == "c2d":
-            self.on_c2d_message = handler_for_feature
+            self.on_c2d_message = self._handle_c2d_message_received
             self._transport.enable_c2d_messages(callback)
         else:
             logger.error("Feature name has not been defined.Feature names can be 'input' or 'c2d'")
