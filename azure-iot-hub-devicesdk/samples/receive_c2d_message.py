@@ -1,9 +1,9 @@
-# --------------------------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 import os
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from azure.iot.hub.devicesdk.device_client import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 
@@ -23,11 +23,15 @@ def connection_state_callback(status):
     print("connection status: " + status)
 
 
-def c2d_message_handler(c2d_message):
-    print("the data in the message received was ")
-    print(c2d_message.data)
-    print("custom properties are")
-    print(c2d_message.custom_properties)
+# background thread that listens to our queue
+# todo: this thread holds a reference to our queue.  We have to figure out shutdown semantics.  The braindead-simple way would be
+# # to do a del on the queue which would force the iterable to throw, which is kinda what we want.
+def c2d_listener():
+    for c2d_message in device_client.messages():
+        print("the data in the message received was ")
+        print(c2d_message.data)
+        print("custom properties are")
+        print(c2d_message.custom_properties)
 
 
 # Register the connection state callback with the client...
@@ -37,7 +41,11 @@ device_client.on_connection_state = connection_state_callback
 device_client.connect()
 
 # enable the device to receive c2d messages
-device_client.enable_feature("c2d", c2d_message_handler)
+device_client.enable_feature("c2d")
+
+
+executor = ThreadPoolExecutor()
+executor.submit(c2d_listener)
 
 while True:
     selection = input("Press Q: Quit for exiting\n")

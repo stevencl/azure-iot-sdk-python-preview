@@ -1,7 +1,7 @@
 import logging
 import abc
 import six
-from threading import Event
+from threading import Event, Queue
 from .transport.mqtt import MQTTTransport
 from .message import Message
 
@@ -164,6 +164,7 @@ class GenericClientSync(GenericClient):
         self._transport.send_event(message, callback)
         send_complete.wait()
 
+    # TODO: remove handler_for_feature -- the user no longer sets this.
     def enable_feature(self, feature_name, handler_for_feature):
         """
         To enable a specific feature on the internal client.Some of the features that can be enabled
@@ -202,12 +203,22 @@ class DeviceClientSync(GenericClientSync):
     def __init__(self, auth_provider, transport):
         super(DeviceClientSync, self).__init__(auth_provider, transport)
         self._transport.on_transport_c2d_message_received = self._handle_c2d_message_received
+        self.c2d_queues = []
 
     def _handle_c2d_message_received(self, message_received):
-        if self.on_c2d_message:
-            self.on_c2d_message(message_received)
-        else:
-            logger.warn("No handler defined for receiving c2d message")
+        # todo: in this POC, c2d_queues is an array of Queue objects.  In our final impl, it
+        # should be an array of weak references to Queue objects so the GC works out correctly.
+        # This function might be one places to clean dead references out of this array.
+        for queue in self.c2d_queues:
+            queue.put_nowait(message_received)
+
+    def c2d_messages(self):
+        """
+        returns an iterable which yields c2d messages as they arrive
+        """
+        newqueue = Queue()
+        self.c2d_queues.append(newqueue)
+        return newqueue
 
 
 class ModuleClientSync(GenericClientSync):
@@ -219,12 +230,13 @@ class ModuleClientSync(GenericClientSync):
     def __init__(self, auth_provider, transport):
         super(ModuleClientSync, self).__init__(auth_provider, transport)
         self._transport.on_transport_input_message_received = self._handle_input_message_received
+        self.input_message_queues = []
 
     def _handle_input_message_received(self, input_name, message_received):
-        if self.on_input_message:
-            self.on_input_message(input_name, message_received)
-        else:
-            logger.warn("No handler defined for receiving input message")
+        # same comment on weak references applies here.
+        for queue in self.input_message_queues:
+            if queue.input_name == input_name:
+                queue.put_nowait(message_received)
 
     def send_to_output(self, message, output_name):
         """
@@ -250,3 +262,12 @@ class ModuleClientSync(GenericClientSync):
 
         self._transport.send_output_event(message, callback)
         send_complete.wait()
+
+    def input_messages(self, input_name):
+        """
+        returns an iterable which yields inputMessages on inputName as they arrive
+        """
+        newqueue = Queue()
+        newqueue.input_name = input_name
+        self.input_message_queues.append(newqueue)
+        return newqueue
