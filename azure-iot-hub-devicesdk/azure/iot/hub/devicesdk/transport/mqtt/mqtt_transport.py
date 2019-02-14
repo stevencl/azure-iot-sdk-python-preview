@@ -222,7 +222,7 @@ class MQTTTransport(AbstractTransport):
             del self._event_callback_map[mid]
             callback()
 
-    def _on_provider_subscribe_complete(self):
+    def _on_provider_subscribe_complete(self, mid):
         """
         Callback that is called by the provider when a subscribe operation is complete.
         """

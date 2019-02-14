@@ -75,7 +75,7 @@ class MQTTProvider(object):
             logger.info("suback received for %s", str(mid))
             # TODO: how to do failure?
             try:
-                self.on_mqtt_subscribed()
+                self.on_mqtt_subscribed(mid)
             except:  # noqa: E722 do not use bare 'except'
                 logger.error("Unexpected error calling on_mqtt_subscribed")
                 logger.error(traceback.format_exc())
