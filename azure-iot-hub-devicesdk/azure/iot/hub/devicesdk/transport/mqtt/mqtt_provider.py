@@ -71,7 +71,7 @@ class MQTTProvider(object):
                 logger.error("Unexpected error calling on_mqtt_published")
                 logger.error(traceback.format_exc())
 
-        def on_subscribe_callback(client, userdata, mid):
+        def on_subscribe_callback(client, userdata, mid, granted_qos):
             logger.info("suback received for %s", str(mid))
             # TODO: how to do failure?
             try:
