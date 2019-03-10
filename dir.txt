@@ -1,0 +1,28 @@
+ Volume in drive F is SRC
+ Volume Serial Number is 58B0-76FE
+
+ Directory of F:\repos\python-preview
+
+03/09/2019  07:43 PM    <DIR>          .
+03/09/2019  07:43 PM    <DIR>          ..
+01/15/2019  10:02 AM               342 .flake8
+01/15/2019  10:02 AM             1,428 .gitignore
+01/15/2019  10:02 AM               305 .pre-commit-config.yaml
+02/18/2019  06:52 AM    <DIR>          .pytest_cache
+03/06/2019  02:06 AM    <DIR>          azure-iot-common
+03/06/2019  02:06 AM    <DIR>          azure-iot-hub-devicesdk
+03/06/2019  02:06 AM    <DIR>          azure-iot-provisioning-servicesdk
+03/06/2019  02:06 AM               927 build_packages.py
+03/09/2019  07:43 PM                 0 dir.txt
+03/06/2019  02:06 AM             1,550 env_setup.py
+01/15/2019  10:02 AM             1,183 LICENSE
+01/15/2019  10:02 AM                70 pyproject.toml
+02/18/2019  07:06 AM                57 pytest.ini
+03/06/2019  02:06 AM             1,735 README.md
+02/18/2019  06:47 AM               255 requirements.txt
+03/06/2019  02:06 AM    <DIR>          scripts
+03/06/2019  02:06 AM               827 test_packages.py
+03/06/2019  02:06 AM    <DIR>          vsts
+02/18/2019  06:56 AM    <DIR>          __pycache__
+              12 File(s)          8,679 bytes
+               9 Dir(s)  110,500,835,328 bytes free
