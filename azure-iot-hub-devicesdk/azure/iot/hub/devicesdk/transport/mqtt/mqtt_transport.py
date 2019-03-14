@@ -40,6 +40,9 @@ class MQTTTransport(AbstractTransport):
         self.on_transport_connected = None
         self.on_transport_disconnected = None
         self.on_event_sent = None
+        self.on_transport_c2d_message_received = None
+        self.on_transport_input_message_received = None
+        self.on_transport_method_call_received = None
         self._event_queue = queue.LifoQueue()
         self._event_callback_map = {}
         self._connect_callback = None
@@ -383,6 +386,10 @@ class MQTTTransport(AbstractTransport):
     def send_output_event(self, message, callback=None):
         self._trig_send_event(message, callback)
 
+    # consider changing this signature
+    def send_method_response(self, method, result, status, callback=None):
+        raise NotImplementedError
+
     def _on_shared_access_string_updated(self):
         self._trig_on_shared_access_string_updated()
 
@@ -391,6 +398,8 @@ class MQTTTransport(AbstractTransport):
             self._enable_input_messages(callback, qos)
         elif feature_name == constant.C2D_MSG:
             self._enable_c2d_messages(callback, qos)
+        elif feature_name == constant.METHODS:
+            self._enable_methods(callback, qos)
         else:
             logger.error("Feature name {} is unknown".format(feature_name))
             raise ValueError("Invalid feature name")
@@ -400,6 +409,8 @@ class MQTTTransport(AbstractTransport):
             self._disable_input_messages(callback)
         elif feature_name == constant.C2D_MSG:
             self._disable_c2d_messages(callback)
+        elif feature_name == constant.METHODS:
+            self._disable_methods(callback)
         else:
             logger.error("Feature name {} is unknown".format(feature_name))
             raise ValueError("Invalid feature name")
@@ -425,6 +436,14 @@ class MQTTTransport(AbstractTransport):
         self._unsubscribe_callback = callback
         self._trig_disable_receive(callback, self._c2d_topic)
         self.feature_enabled[constant.C2D_MSG] = False
+
+    def _enable_methods(self, callback=None, qos=1):
+        self.feature_enabled[constant.METHODS] = True
+        raise NotImplementedError
+
+    def _disable_methods(self, callback=None):
+        self.feature_enabled[constant.METHODS] = False
+        raise NotImplementedError
 
     def _call_subscribe(self, event_data):
         logger.info("receive message topic is " + event_data.args[1])

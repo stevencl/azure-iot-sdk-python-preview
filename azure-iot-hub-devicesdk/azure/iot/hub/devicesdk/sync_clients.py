@@ -88,6 +88,9 @@ class GenericClientSync(GenericClient):
         """
         super(GenericClientSync, self).__init__(transport)
         self._inbox_manager = InboxManager(inbox_type=SyncClientInbox)
+        self._transport.on_transport_method_call_message_received = (
+            self._inbox_manager.route_method_call
+        )
 
     def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
@@ -166,7 +169,18 @@ class GenericClientSync(GenericClient):
 
         :returns: MethodCall object representing the received method call.
         """
-        raise NotImplementedError
+        if not self._transport.feature_enabled[constant.METHODS]:
+            self._enable_feature(constant.METHODS)
+
+        if method_name:
+            method_inbox = self._inbox_manager.get_named_method_call_inbox(method_name)
+        else:
+            method_inbox = self._inbox_manager.get_generic_method_call_inbox()
+
+        logger.info("Waiting for method call...")
+        method_call = method_inbox.get(block=block, timeout=timeout)
+        logger.info("Received method call")
+        return method_call
 
     def send_method_response(self, method, result, status):
         """Send a response to a method call via the Azure IoT Hub or Azure IoT Edge Hub.
@@ -175,7 +189,16 @@ class GenericClientSync(GenericClient):
         :param result: The desired result for the method call.
         :param int status: The desired return status code for the method call.
         """
-        raise NotImplementedError
+        logger.info("Sending method response to Hub...")
+        send_complete = Event()
+
+        def callback():
+            send_complete.set()
+            logger.info("Successfully sent method response to Hub")
+
+        # maybe consolidate method, result and status into a new object
+        self._transport.send_method_response(method, result, status, callback=callback)
+        send_complete.wait()
 
     def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature in the transport.
