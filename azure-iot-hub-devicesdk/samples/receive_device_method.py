@@ -27,20 +27,48 @@ device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
 device_client.connect()
 
 
-# define behavior for receiving a C2D message
-def c2d_listener(device_client):
+# define behavior for handling methods
+def method1_listener(device_client):
     while True:
-        c2d_message = device_client.receive_method()  # blocking call
-        print("the data in the message received was ")
-        print(c2d_message.data)
-        print("custom properties are")
-        print(c2d_message.custom_properties)
+        method_call = device_client.receive_method("method1")  # Wait for method1 calls
+        result = True  # set some result
+        status = 200  # set return status code
+        print("executed method1")
+        device_client.send_method_response(method_call, result, status)  # send response
 
 
-# Run a listener thread in the background
-listen_thread = threading.Thread(target=c2d_listener, args=(device_client,))
-listen_thread.daemon = True
-listen_thread.start()
+def method2_listener(device_client):
+    while True:
+        method_call = device_client.receive_method("method2")  # Wait for method2 calls
+        result = True  # set some result
+        status = 200  # set return status code
+        print("executed method2")
+        device_client.send_method_response(method_call, result, status)  # send response
+
+
+def generic_method_listener(device_client):
+    while True:
+        method_call = device_client.receive_method()  # Wait for unknown method calls
+        result = False  # set some result
+        status = 400  # set return status code
+        print("executed unknown method: " + method_call.name)
+        device_client.send_method_response(method_call, result, status)  # send response
+
+
+# Run method listener threads in the background
+method1_thread = threading.Thread(target=method1_listener, args=(device_client,))
+method1_thread.daemon = True
+method1_thread.start()
+
+
+method2_thread = threading.Thread(target=method2_listener, args=(device_client,))
+method2_thread.daemon = True
+method2_thread.start()
+
+
+generic_method_thread = threading.Thread(target=generic_method_listener, args=(device_client,))
+generic_method_thread.daemon = True
+generic_method_thread.start()
 
 
 # Wait for user to indicate they are done listening for messages

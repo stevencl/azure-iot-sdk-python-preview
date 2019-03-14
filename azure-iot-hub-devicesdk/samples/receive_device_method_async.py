@@ -1,0 +1,85 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See License.txt in the project root for
+# license information.
+# --------------------------------------------------------------------------
+
+import os
+import asyncio
+from six.moves import input
+import logging
+import threading
+from azure.iot.hub.devicesdk.aio import DeviceClient
+from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
+
+logging.basicConfig(level=logging.ERROR)
+
+
+async def main():
+    # The connection string for a device should never be stored in code. For the sake of simplicity we're using an environment variable here.
+    conn_str = os.getenv("IOTHUB_DEVICE_CONNECTION_STRING")
+    # The "Authentication Provider" is the object in charge of creating authentication "tokens" for the device client.
+    auth_provider = from_connection_string(conn_str)
+    # For now, the SDK only supports MQTT as a protocol. the client object is used to interact with your Azure IoT hub.
+    # It needs an Authentication Provider to secure the communication with the hub, using either tokens or x509 certificates
+    device_client = DeviceClient.from_authentication_provider(auth_provider, "mqtt")
+
+    # connect the client.
+    await device_client.connect()
+
+    # define behavior for handling methods
+    async def method1_listener(device_client):
+        while True:
+            method_call = await device_client.receive_method("method1")  # Wait for method1 calls
+            result = True  # set some result
+            status = 200  # set return status code
+            print("executed method1")
+            await device_client.send_method_response(method_call, result, status)  # send response
+
+    async def method2_listener(device_client):
+        while True:
+            method_call = await device_client.receive_method("method2")  # Wait for method2 calls
+            result = True  # set some result
+            status = 200  # set return status code
+            print("executed method2")
+            await device_client.send_method_response(method_call, result, status)  # send response
+
+    async def generic_method_listener(device_client):
+        while True:
+            method_call = await device_client.receive_method()  # Wait for unknown method calls
+            result = False  # set some result
+            status = 400  # set return status code
+            print("executed unknown method: " + method_call.name)
+            await device_client.send_method_response(method_call, result, status)  # send response
+
+    # define behavior for halting the application
+    def stdin_listener():
+        while True:
+            selection = input("Press Q: Quit for exiting\n")
+            if selection == "Q" or selection == "q":
+                print("Quitting")
+                break
+
+    # Schedule tasks for Method Listener
+    listeners = asyncio.gather(
+        method1_listener(device_client),
+        method2_listener(device_client),
+        generic_method_listener(device_client),
+    )
+
+    # Run the stdin listener in the event loop
+    loop = asyncio.get_running_loop()
+    user_finished = loop.run_in_executor(None, stdin_listener)
+
+    # Wait for user to indicate they are done listening for method calls
+    await user_finished
+
+    # Cancel listening
+    listeners.cancel()
+
+    # Finally, disconnect
+    await device_client.disconnect()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

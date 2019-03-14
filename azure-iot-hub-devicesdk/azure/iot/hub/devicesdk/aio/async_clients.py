@@ -88,6 +88,28 @@ class GenericClientAsync(GenericClient):
         await send_event_async(message, callback=callback)
         await callback.completion()
 
+    async def receive_method(self, method_name=None):
+        """Receive a method call via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        If no method call is yet available, will wait until it is available.
+
+        :param str method_name: Optionally provide the name of the method to receive calls for.
+        If this parameter is not given, all methods not already being specifically targeted by
+        a different call to receive_method will be received.
+
+        :returns: MethodCall object representing the received method call.
+        """
+        raise NotImplementedError
+
+    async def send_method_response(self, method, result, status):
+        """Send a response to a method call via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        :param method: MethodCall object representing the method call being responded to.
+        :param result: The desired result for the method call.
+        :param int status: The desired return status code for the method call.
+        """
+        raise NotImplementedError
+
     async def _enable_feature(self, feature_name):
         """Enable an Azure IoT Hub feature in the transport
 
