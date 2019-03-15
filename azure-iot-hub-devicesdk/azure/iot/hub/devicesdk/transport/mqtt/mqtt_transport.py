@@ -1,4 +1,4 @@
-# -------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
@@ -28,6 +28,35 @@ TOPIC_POS_MODULE = 6
 TOPIC_POS_INPUT_NAME = 5
 
 
+class TransportAction:
+    pass
+
+
+class SendMessageAction(TransportAction):
+    def __init__(self, message, callback):
+        self.message = message
+        self.callback = callback
+
+
+class SubscribeAction(TransportAction):
+    def __init__(self, topic, qos, callback):
+        self.topic = topic
+        self.qos = qos
+        self.callback = callback
+
+
+class UnsubscribeAction(TransportAction):
+    def __init__(self, topic, callback):
+        self.topic = topic
+        self.callback = callback
+
+
+class MethodReponseAction(TransportAction):
+    def __init__(self, method_response, callback):
+        self.method_response = method_response
+        self.callback = callback
+
+
 class MQTTTransport(AbstractTransport):
     def __init__(self, auth_provider):
         """
@@ -39,13 +68,10 @@ class MQTTTransport(AbstractTransport):
         self._mqtt_provider = None
         self.on_transport_connected = None
         self.on_transport_disconnected = None
-        self.on_event_sent = None
-        self._event_queue = queue.LifoQueue()
-        self._event_callback_map = {}
+        self._action_queue = queue.Queue()
+        self._callback_map = {}
         self._connect_callback = None
         self._disconnect_callback = None
-        self._subscribe_callback = None
-        self._unsubscribe_callback = None
 
         self._c2d_topic = None
         self._input_topic = None
@@ -64,7 +90,7 @@ class MQTTTransport(AbstractTransport):
                 "trigger": "_trig_provider_connect_complete",
                 "source": "connecting",
                 "dest": "connected",
-                "after": "_publish_events_in_queue",
+                "after": "_do_actions_in_queue",
             },
             {
                 "trigger": "_trig_disconnect",
@@ -83,22 +109,22 @@ class MQTTTransport(AbstractTransport):
                 "dest": "disconnected",
             },
             {
-                "trigger": "_trig_send_event",
+                "trigger": "_trig_queue_action",
                 "source": "connected",
-                "before": "_add_event_to_queue",
+                "before": "_add_action_to_queue",
                 "dest": None,
-                "after": "_publish_events_in_queue",
+                "after": "_do_actions_in_queue",
             },
             {
-                "trigger": "_trig_send_event",
+                "trigger": "_trig_queue_action",
                 "source": "connecting",
-                "before": "_add_event_to_queue",
+                "before": "_add_action_to_queue",
                 "dest": None,
             },
             {
-                "trigger": "_trig_send_event",
+                "trigger": "_trig_queue_action",
                 "source": "disconnected",
-                "before": "_add_event_to_queue",
+                "before": "_add_action_to_queue",
                 "dest": "connecting",
                 "after": "_call_provider_connect",
             },
@@ -112,32 +138,6 @@ class MQTTTransport(AbstractTransport):
                 "trigger": "_trig_on_shared_access_string_updated",
                 "source": ["disconnected", "disconnecting"],
                 "dest": None,
-            },
-            {
-                "trigger": "_trig_enable_receive",
-                "source": "connected",
-                "dest": None,
-                "after": "_call_subscribe",
-            },
-            {"trigger": "_trig_enable_receive", "source": "connecting", "dest": None},
-            {
-                "trigger": "_trig_enable_receive",
-                "source": "disconnected",
-                "dest": "connecting",
-                "after": "_call_provider_connect",
-            },
-            {
-                "trigger": "_trig_disable_receive",
-                "source": "connected",
-                "dest": None,
-                "after": "_call_unsubscribe",
-            },
-            {"trigger": "_trig_disable_receive", "source": "connecting", "dest": None},
-            {
-                "trigger": "_trig_disable_receive",
-                "source": "disconnected",
-                "dest": "connecting",
-                "after": "_call_provider_connect",
             },
         ]
 
@@ -234,22 +234,25 @@ class MQTTTransport(AbstractTransport):
         """
         Callback that is called by the provider when a publish operation is complete.
         """
-        if self.on_event_sent:
-            self.on_event_sent()
-        if mid in self._event_callback_map:
-            callback = self._event_callback_map[mid]
-            del self._event_callback_map[mid]
+        if mid in self._callback_map:
+            callback = self._callback_map[mid]
+            del self._callback_map[mid]
             callback()
+        else:
+            # TODO: tests for unkonwn MID cases
+            logger.warning("PUBACK received with unknown MID: %s", str(mid))
 
     def _on_provider_subscribe_complete(self, mid):
         """
         Callback that is called by the provider when a subscribe operation is complete.
         """
-        logger.info("_on_provider_subscribe_complete")
-        callback = self._subscribe_callback
-        if callback:
-            self._subscribe_callback = None
+        if mid in self._callback_map:
+            callback = self._callback_map[mid]
+            del self._callback_map[mid]
             callback()
+        else:
+            # TODO: tests for unkonwn MID cases
+            logger.warning("SUBACK received with unknown MID: %s", str(mid))
 
     def _on_provider_message_received_callback(self, topic, payload):
         """
@@ -273,25 +276,61 @@ class MQTTTransport(AbstractTransport):
             pass  # is there any other case
 
     def _on_provider_unsubscribe_complete(self, mid):
-        """
-        Callback that is called by the provider when a subscribe operation is complete.
-        """
-        logger.info("_on_provider_unsubscribe_complete")
-        callback = self._unsubscribe_callback
-        if callback:
-            self._unsubscribe_callback = None
+        if mid in self._callback_map:
+            callback = self._callback_map[mid]
+            del self._callback_map[mid]
             callback()
+        else:
+            # TODO: tests for unkonwn MID cases
+            logger.warning("UNSUBACK received with unknown MID: %s", str(mid))
 
-    def _add_event_to_queue(self, event_data):
+    def _add_action_to_queue(self, event_data):
         """
-        Queue an event for sending later.  All events that get sent end up going into
-        this queue, even if they're going to be sent immediately.
+        Queue an action for running later.  All actions that need to run while connected end up in
+        this queue, even if they're going to be run immediately.
         """
-        logger.info("Adding event to queue for later sending")
-        # TODO: throw here if event_data.args[0] is not an event/message
-        self._event_queue.put_nowait((event_data.args[0], event_data.args[1]))
+        action = event_data.args[0]
+        if isinstance(action, TransportAction):
+            self._action_queue.put_nowait(event_data.args[0])
+        else:
+            assert False
 
-    def _publish_events_in_queue(self, event_data):
+    def _do_single_action(self, action):
+        if isinstance(action, SendMessageAction):
+            logger.info("running SendMessageAction")
+            message_to_send = action.message
+            base_topic = self._get_telemetry_topic()
+
+            if isinstance(message_to_send, Message):
+                encoded_topic = _encode_properties(message_to_send, base_topic)
+            else:
+                encoded_topic = base_topic
+                message_to_send = Message(message_to_send)
+
+            mid = self._mqtt_provider.publish(encoded_topic, message_to_send.data)
+            self._callback_map[mid] = action.callback
+
+        elif isinstance(action, SubscribeAction):
+            logger.info("running SubscribeAction topic=%s qos=%s", action.topic, action.qos)
+            mid = self._mqtt_provider.subscribe(action.topic, action.qos)
+            logger.info("subscribe mid = %s", mid)
+            self._callback_map[mid] = action.callback
+
+        elif isinstance(action, UnsubscribeAction):
+            logger.info("running UnsubscribeAction")
+            mid = self._mqtt_provider.unsubscribe(action.topic)
+            self._callback_map[mid] = action.callback
+
+        elif isinstance(action, MethodReponseAction):
+            logger.info("running MethodResponseAction")
+            topic = "TODO"
+            mid = self._mqtt_provider.publish(topic, action.method_response)
+            self._callback_map[mid] = action.callback
+
+        else:
+            logger.error("Removed unknown action type from queue.")
+
+    def _do_actions_in_queue(self, event_data):
         """
         Publish any events that are waiting in the event queue.  This function
         actually calls down into the provider to publish the events.  For each
@@ -299,19 +338,15 @@ class MQTTTransport(AbstractTransport):
         that needs to be called when the result of the publish operation is i
         available.
         """
-        logger.info("checking event queue")
+        logger.info("checking _action_queue")
         while True:
             try:
-                (message_to_send, callback) = self._event_queue.get_nowait()
+                action = self._action_queue.get_nowait()
             except queue.Empty:
                 logger.info("done checking queue")
                 return
-            logger.info("retrieved event from queue. publishing.")
 
-            encoded_topic = _encode_properties(message_to_send, self.topic)
-
-            mid = self._mqtt_provider.publish(encoded_topic, message_to_send.data)
-            self._event_callback_map[mid] = callback
+            self._do_single_action(action)
 
     def _create_mqtt_provider(self):
         client_id = self._auth_provider.device_id
@@ -339,6 +374,7 @@ class MQTTTransport(AbstractTransport):
         self._mqtt_provider.on_mqtt_published = self._on_provider_publish_complete
         self._mqtt_provider.on_mqtt_subscribed = self._on_provider_subscribe_complete
         self._mqtt_provider.on_mqtt_unsubscribed = self._on_provider_unsubscribe_complete
+        self._mqtt_provider.on_mqtt_message = self._on_provider_message
 
     def _get_telemetry_topic(self):
         topic = "devices/" + self._auth_provider.device_id
@@ -349,25 +385,30 @@ class MQTTTransport(AbstractTransport):
         topic += "/messages/events/"
         return topic
 
+    def _get_base_topic(self):
+        if self._auth_provider.module_id:
+            return (
+                "devices/"
+                + self._auth_provider.device_id
+                + "/modules/"
+                + self._auth_provider.module_id
+            )
+        else:
+            return "devices/" + self._auth_provider.device_id
+
     def _get_c2d_topic(self):
         """
         :return: The topic for cloud to device messages.It is of the format
         "devices/<deviceid>/messages/devicebound/#"
         """
-        return "devices/" + self._auth_provider.device_id + "/messages/devicebound/#"
+        return self._get_base_topic() + "/messages/devicebound/#"
 
     def _get_input_topic(self):
         """
         :return: The topic for input messages. It is of the format
         "devices/<deviceId>/modules/<moduleId>/messages/inputs/#"
         """
-        return (
-            "devices/"
-            + self._auth_provider.device_id
-            + "/modules/"
-            + self._auth_provider.module_id
-            + "/inputs/#"
-        )
+        return self._get_base_topic() + "/inputs/#"
 
     def connect(self, callback=None):
         logger.info("connect called")
@@ -380,12 +421,12 @@ class MQTTTransport(AbstractTransport):
         self._trig_disconnect()
 
     def send_event(self, message, callback=None):
-        logger.info("send_event called")
-        self._trig_send_event(message, callback)
+        action = SendMessageAction(message, callback)
+        self._trig_queue_action(action, self._action_queue)
 
     def send_output_event(self, message, callback=None):
-        logger.info("send_output_event called")
-        self._trig_send_event(message, callback)
+        action = SendMessageAction(message, callback)
+        self._trig_queue_action(action, self._action_queue)
 
     def _on_shared_access_string_updated(self):
         self._trig_on_shared_access_string_updated()
@@ -411,35 +452,24 @@ class MQTTTransport(AbstractTransport):
             raise ValueError("Invalid feature name")
 
     def _enable_input_messages(self, callback=None, qos=1):
-        self._subscribe_callback = callback
-        self._input_topic = self._get_input_topic()
-        self._trig_enable_receive(callback, self._input_topic, qos)
+        action = SubscribeAction(self._get_input_topic(), qos, callback)
+        self._trig_queue_action(action)
         self.feature_enabled[constant.INPUT_MSG] = True
 
     def _disable_input_messages(self, callback=None):
-        self._unsubscribe_callback = callback
-        self._trig_disable_receive(callback, self._input_topic)
+        action = UnsubscribeAction(self._get_input_topic(), callback)
+        self._trig_queue_action(action)
         self.feature_enabled[constant.INPUT_MSG] = False
 
     def _enable_c2d_messages(self, callback=None, qos=1):
-        self._subscribe_callback = callback
-        self._c2d_topic = self._get_c2d_topic()
-        self._trig_enable_receive(callback, self._c2d_topic, qos)
+        action = SubscribeAction(self._get_c2d_topic(), qos, callback)
+        self._trig_queue_action(action)
         self.feature_enabled[constant.C2D_MSG] = True
 
     def _disable_c2d_messages(self, callback=None):
-        self._unsubscribe_callback = callback
-        self._trig_disable_receive(callback, self._c2d_topic)
+        action = UnsubscribeAction(self._get_c2d_topic(), callback)
+        self._trig_queue_action(action)
         self.feature_enabled[constant.C2D_MSG] = False
-
-    def _call_subscribe(self, event_data):
-        logger.info("receive message topic is " + event_data.args[1])
-        self._mqtt_provider.subscribe(event_data.args[1], event_data.args[2])
-        self._mqtt_provider.on_mqtt_message_received = self._on_provider_message_received_callback
-
-    def _call_unsubscribe(self, event_data):
-        logger.info("unsubscribe from message topic " + event_data.args[1])
-        self._mqtt_provider.unsubscribe(event_data.args[1])
 
 
 def _is_c2d_topic(split_topic_str):
