@@ -374,7 +374,7 @@ class MQTTTransport(AbstractTransport):
         self._mqtt_provider.on_mqtt_published = self._on_provider_publish_complete
         self._mqtt_provider.on_mqtt_subscribed = self._on_provider_subscribe_complete
         self._mqtt_provider.on_mqtt_unsubscribed = self._on_provider_unsubscribe_complete
-        self._mqtt_provider.on_mqtt_message = self._on_provider_message
+        self._mqtt_provider.on_mqtt_message_received = self._on_provider_message_received_callback
 
     def _get_telemetry_topic(self):
         topic = "devices/" + self._auth_provider.device_id

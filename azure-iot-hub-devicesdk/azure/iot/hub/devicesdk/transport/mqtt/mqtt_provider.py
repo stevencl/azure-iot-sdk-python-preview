@@ -36,6 +36,7 @@ class MQTTProvider(object):
         self.on_mqtt_published = None
         self.on_mqtt_subscribed = None
         self.on_mqtt_unsubscribed = None
+        self.on_mqtt_message_received = None
 
         self._create_mqtt_client()
 
