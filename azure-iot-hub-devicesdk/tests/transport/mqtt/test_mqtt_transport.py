@@ -517,3 +517,27 @@ class TestDisableC2D:
         transport.disable_feature(constant.C2D_MSG)
 
         assert not transport.feature_enabled[constant.C2D_MSG]
+
+
+@pytest.mark.skip(reason="Not implemented")
+class TestEnableMethods:
+    def test_subscribe_calls_subscribe_on_provider(self, transport):
+        pass
+
+    def test_suback_calls_client_callback(self, transport):
+        pass
+
+    def test_sets_methods_status_to_enabled(self, transport):
+        pass
+
+
+@pytest.mark.skip(reason="Not implemented")
+class TestDisableMethods:
+    def test_unsubscribe_calls_unsubscribe_on_provider(self, transport):
+        pass
+
+    def test_unsuback_of_methods_calls_client_callback(self, transport):
+        pass
+
+    def test_sets_method_status_to_disabled(self, transport):
+        pass
