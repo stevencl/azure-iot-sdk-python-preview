@@ -370,19 +370,24 @@ class MQTTTransport(AbstractTransport):
         :param payload: Payload of the message
         """
         logger.info("Message received on topic %s", topic)
-        message_received = Message(payload)
         # TODO : Discuss everything in bytes , need to be changed, specially the topic
         topic_str = topic.decode("utf-8")
         topic_parts = topic_str.split("/")
 
         if _is_input_topic(topic_str):
+            message_received = Message(payload)
             input_name = topic_parts[TOPIC_POS_INPUT_NAME]
             message_received.input_name = input_name
             _extract_properties(topic_parts[TOPIC_POS_MODULE], message_received)
             self.on_transport_input_message_received(input_name, message_received)
         elif _is_c2d_topic(topic_str):
+            message_received = Message(payload)
             _extract_properties(topic_parts[TOPIC_POS_DEVICE], message_received)
             self.on_transport_c2d_message_received(message_received)
+        elif _is_method_topic(topic_str):
+            # TODO: translate payload
+            method_received = None
+            self.on_transport_method_request_received(method_received)
         else:
             pass  # is there any other case
 
@@ -539,6 +544,13 @@ class MQTTTransport(AbstractTransport):
         """
         return self._get_topic_base() + "/inputs/#"
 
+    def _get_method_topic_for_subscribe(self):
+        """
+        :return: The topic for methods. It is of the format
+        "$iothub/methods/POST/#"
+        """
+        return "$iothub/methods/POST/#"
+
     def connect(self, callback=None):
         """
         Connect to the service.
@@ -663,12 +675,25 @@ class MQTTTransport(AbstractTransport):
         self.feature_enabled[constant.C2D_MSG] = False
 
     def _enable_methods(self, callback=None, qos=1):
+        """
+        Helper function to enable methods
+
+        :param callback: callback which is called when the feature is enabled.
+        :param qos: Quality of Serivce level
+        """
+        action = SubscribeAction(self._get_method_topic_for_subscribe(), qos, callback)
+        self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.METHODS] = True
-        raise NotImplementedError
 
     def _disable_methods(self, callback=None):
+        """
+        Helper function to disable methods
+
+        :param callback: callback which is called when the feature is disabled
+        """
+        action = UnsubscribeAction(self._get_method_topic_for_subscribe(), callback)
+        self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.METHODS] = False
-        raise NotImplementedError
 
 
 def _is_c2d_topic(split_topic_str):
@@ -689,6 +714,18 @@ def _is_input_topic(split_topic_str):
     :param split_topic_str: The already split received topic string
     """
     if "inputs" in split_topic_str and len(split_topic_str) > 6:
+        return True
+    return False
+
+
+def _is_method_topic(split_topic_str):
+    """
+    Topics for methods are of the following format:
+    "methods/POST/#"
+
+    :param split_topic_str: The already split received topic string.
+    """
+    if "methods" in split_topic_str and len(split_topic_str) > 2:
         return True
     return False
 
