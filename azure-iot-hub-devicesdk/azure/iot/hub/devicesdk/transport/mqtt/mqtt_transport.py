@@ -13,6 +13,7 @@ from transitions import Machine
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
 from azure.iot.hub.devicesdk.transport import constant
 from azure.iot.hub.devicesdk.message import Message
+from azure.iot.hub.devicesdk.method_call import MethodCall
 
 
 """
@@ -76,6 +77,9 @@ class uses the following conventions:
 TOPIC_POS_DEVICE = 4
 TOPIC_POS_MODULE = 6
 TOPIC_POS_INPUT_NAME = 5
+
+TOPIC_POS_METHOD_NAME = 3
+TOPIC_POS_REQUEST_ID = 4
 
 
 class TransportAction(object):
@@ -148,7 +152,7 @@ class MQTTTransport(AbstractTransport):
         self.on_transport_disconnected = None
         self.on_transport_input_message_received = None
         self.on_transport_c2d_message_received = None
-        self.on_transport_method_request_received = None
+        self.on_transport_method_call_received = None
 
         # Queue of actions that will be executed once the transport is connected.
         # Currently, we use a queue, which is FIFO, but the actual order doesn't matter
@@ -385,9 +389,10 @@ class MQTTTransport(AbstractTransport):
             _extract_properties(topic_parts[TOPIC_POS_DEVICE], message_received)
             self.on_transport_c2d_message_received(message_received)
         elif _is_method_topic(topic_str):
-            # TODO: translate payload
-            method_received = None
-            self.on_transport_method_request_received(method_received)
+            method_received = MethodCall(
+                topic_parts[TOPIC_POS_REQUEST_ID], topic_parts[TOPIC_POS_METHOD_NAME], payload, None
+            )  # TODO: Figure out how to get timeout
+            self.on_transport_method_call_received(method_received)
         else:
             pass  # is there any other case
 
@@ -590,6 +595,11 @@ class MQTTTransport(AbstractTransport):
         self._trig_add_action_to_pending_queue(action, self._pending_action_queue)
 
     def send_method_response(self, method, payload, status, callback=None):
+        """
+        Send a method response to the service.
+
+        TODO: parameter docs
+        """
         raise NotImplementedError
 
     def _on_shared_access_string_updated(self):

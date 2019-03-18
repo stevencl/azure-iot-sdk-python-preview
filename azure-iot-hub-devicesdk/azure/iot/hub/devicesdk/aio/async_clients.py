@@ -33,9 +33,7 @@ class GenericClientAsync(GenericClient):
         """
         super().__init__(transport)
         self._inbox_manager = InboxManager(inbox_type=AsyncClientInbox)
-        self._transport.on_transport_method_call_message_received = (
-            self._inbox_manager.route_method_call
-        )
+        self._transport.on_transport_method_call_received = self._inbox_manager.route_method_call
 
     async def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
