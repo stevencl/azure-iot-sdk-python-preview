@@ -539,3 +539,8 @@ class TestDisableMethods:
 
     def test_sets_method_status_to_disabled(self, transport):
         pass
+
+
+@pytest.mark.skip(reason="Not implemented")
+class TestSendMethodResponse:
+    pass

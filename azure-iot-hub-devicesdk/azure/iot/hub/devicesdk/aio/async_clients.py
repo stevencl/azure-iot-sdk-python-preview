@@ -33,6 +33,9 @@ class GenericClientAsync(GenericClient):
         """
         super().__init__(transport)
         self._inbox_manager = InboxManager(inbox_type=AsyncClientInbox)
+        self._transport.on_transport_method_call_message_received = (
+            self._inbox_manager.route_method_call
+        )
 
     async def connect(self):
         """Connects the client to an Azure IoT Hub or Azure IoT Edge Hub instance.
@@ -86,6 +89,48 @@ class GenericClientAsync(GenericClient):
         callback = async_adapter.AwaitableCallback(sync_callback)
 
         await send_event_async(message, callback=callback)
+        await callback.completion()
+
+    async def receive_method(self, method_name=None):
+        """Receive a method call via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        If no method call is yet available, will wait until it is available.
+
+        :param str method_name: Optionally provide the name of the method to receive calls for.
+        If this parameter is not given, all methods not already being specifically targeted by
+        a different call to receive_method will be received.
+
+        :returns: MethodCall object representing the received method call.
+        """
+        if not self._transport.feature_enabled[constant.METHODS]:
+            await self._enable_feature(constant.METHODS)
+
+        method_inbox = self._inbox_manager.get_method_call_inbox(method_name)
+
+        logger.info("Waiting for method call...")
+        method_call = await method_inbox.get()
+        logger.info("Received method call")
+        return method_call
+
+    async def send_method_response(self, method, payload, status):
+        """Send a response to a method call via the Azure IoT Hub or Azure IoT Edge Hub.
+
+        :param method: MethodCall object representing the method call being responded to.
+        :param payload: The desired payload for the method call response.
+        :param int status: The desired return status code for the method call response.
+        """
+        logger.info("Sending method response to Hub...")
+        send_method_response_async = async_adapter.emulate_async(
+            self._transport.send_method_response
+        )
+
+        def sync_callback():
+            logger.info("Successfully sent method response to Hub")
+
+        callback = async_adapter.AwaitableCallback(sync_callback)
+
+        # TODO: maybe consolidate method, result and status into a new object
+        await send_method_response_async(method, payload, status, callback=callback)
         await callback.completion()
 
     async def _enable_feature(self, feature_name):

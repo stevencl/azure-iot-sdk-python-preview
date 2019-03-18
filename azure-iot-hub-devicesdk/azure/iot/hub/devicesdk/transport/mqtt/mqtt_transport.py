@@ -577,6 +577,9 @@ class MQTTTransport(AbstractTransport):
         action = SendMessageAction(message, callback)
         self._trig_add_action_to_pending_queue(action, self._pending_action_queue)
 
+    def send_method_response(self, method, payload, status, callback=None):
+        raise NotImplementedError
+
     def _on_shared_access_string_updated(self):
         """
         Callback which is called by the authentication provider when the shared access string has been updated.
@@ -595,6 +598,8 @@ class MQTTTransport(AbstractTransport):
             self._enable_input_messages(callback, qos)
         elif feature_name == constant.C2D_MSG:
             self._enable_c2d_messages(callback, qos)
+        elif feature_name == constant.METHODS:
+            self._enable_methods(callback, qos)
         else:
             logger.error("Feature name {} is unknown".format(feature_name))
             raise ValueError("Invalid feature name")
@@ -611,6 +616,8 @@ class MQTTTransport(AbstractTransport):
             self._disable_input_messages(callback)
         elif feature_name == constant.C2D_MSG:
             self._disable_c2d_messages(callback)
+        elif feature_name == constant.METHODS:
+            self._disable_methods(callback)
         else:
             logger.error("Feature name {} is unknown".format(feature_name))
             raise ValueError("Invalid feature name")
@@ -654,6 +661,14 @@ class MQTTTransport(AbstractTransport):
         action = UnsubscribeAction(self._get_c2d_topic_for_subscribe(), callback)
         self._trig_add_action_to_pending_queue(action)
         self.feature_enabled[constant.C2D_MSG] = False
+
+    def _enable_methods(self, callback=None, qos=1):
+        self.feature_enabled[constant.METHODS] = True
+        raise NotImplementedError
+
+    def _disable_methods(self, callback=None):
+        self.feature_enabled[constant.METHODS] = False
+        raise NotImplementedError
 
 
 def _is_c2d_topic(split_topic_str):
