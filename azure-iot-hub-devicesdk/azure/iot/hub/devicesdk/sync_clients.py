@@ -172,22 +172,19 @@ class GenericClientSync(GenericClient):
         if not self._transport.feature_enabled[constant.METHODS]:
             self._enable_feature(constant.METHODS)
 
-        if method_name:
-            method_inbox = self._inbox_manager.get_named_method_call_inbox(method_name)
-        else:
-            method_inbox = self._inbox_manager.get_generic_method_call_inbox()
+        method_inbox = self._inbox_manager.get_method_call_inbox(method_name)
 
         logger.info("Waiting for method call...")
         method_call = method_inbox.get(block=block, timeout=timeout)
         logger.info("Received method call")
         return method_call
 
-    def send_method_response(self, method, result, status):
+    def send_method_response(self, method, payload, status):
         """Send a response to a method call via the Azure IoT Hub or Azure IoT Edge Hub.
 
         :param method: MethodCall object representing the method call being responded to.
-        :param result: The desired result for the method call.
-        :param int status: The desired return status code for the method call.
+        :param payload: The desired payload for the method call response.
+        :param int status: The desired return status code for the method call response.
         """
         logger.info("Sending method response to Hub...")
         send_complete = Event()
@@ -196,8 +193,8 @@ class GenericClientSync(GenericClient):
             send_complete.set()
             logger.info("Successfully sent method response to Hub")
 
-        # maybe consolidate method, result and status into a new object
-        self._transport.send_method_response(method, result, status, callback=callback)
+        # TODO: maybe consolidate method, result and status into a new object
+        self._transport.send_method_response(method, payload, status, callback=callback)
         send_complete.wait()
 
     def _enable_feature(self, feature_name):

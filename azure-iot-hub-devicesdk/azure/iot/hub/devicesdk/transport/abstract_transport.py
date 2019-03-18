@@ -40,6 +40,14 @@ class AbstractTransport:
         """
         pass
 
+    # TODO: consider changing this signature (should the response already be packaged?)
+    @abc.abstractmethod
+    def send_method_response(self, method, payload, status, callback=None):
+        """
+        Send a method response.
+        """
+        pass
+
     @abc.abstractmethod
     def disconnect(self, callback):
         """

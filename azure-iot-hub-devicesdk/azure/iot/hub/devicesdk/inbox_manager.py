@@ -54,27 +54,25 @@ class InboxManager(object):
         """
         return self.c2d_message_inbox
 
-    def get_generic_method_call_inbox(self):
-        """Retrieve the Inbox for generic method calls.
-
-        :returns: An Inbox for generic method calls.
-        """
-        return self.generic_method_call_inbox
-
-    def get_named_method_call_inbox(self, method_name):
-        """Retrieve method call Inbox for a given method name.
+    def get_method_call_inbox(self, method_name=None):
+        """Retrieve the method call Inbox for a given method name if provided,
+        or for generic method calls if not.
 
         If the Inbox does not already exist, it will be created.
 
-        :param str method_name: The name of the method for which the associated Inbox is desired.
-        :returns: An Inbox for method calls of the given name.
+        :param str method_name: Optional. The name of the method for which the
+        associated Inbox is desired.
+        :returns: An Inbox for method calls.
         """
-        try:
-            inbox = self.named_method_call_inboxes[method_name]
-        except KeyError:
-            # Create a new Inbox for the method name
-            inbox = self._create_inbox()
-            self.named_method_call_inboxes[method_name] = inbox
+        if method_name:
+            try:
+                inbox = self.named_method_call_inboxes[method_name]
+            except KeyError:
+                # Create a new Inbox for the method name
+                inbox = self._create_inbox()
+                self.named_method_call_inboxes[method_name] = inbox
+        else:
+            inbox = self.generic_method_call_inbox
 
         return inbox
 

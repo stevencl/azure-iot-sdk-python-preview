@@ -5,9 +5,10 @@
 # --------------------------------------------------------------------------
 
 import os
-from six.moves import input
+import json
 import logging
 import threading
+from six.moves import input
 from azure.iot.hub.devicesdk import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 
@@ -31,28 +32,28 @@ device_client.connect()
 def method1_listener(device_client):
     while True:
         method_call = device_client.receive_method("method1")  # Wait for method1 calls
-        result = True  # set some result
+        payload = json.dumps({"result": True, "data": "some data"})  # set response payload
         status = 200  # set return status code
         print("executed method1")
-        device_client.send_method_response(method_call, result, status)  # send response
+        device_client.send_method_response(method_call, payload, status)  # send response
 
 
 def method2_listener(device_client):
     while True:
         method_call = device_client.receive_method("method2")  # Wait for method2 calls
-        result = True  # set some result
+        payload = json.dumps({"result": True, "data": 1234})  # set response payload
         status = 200  # set return status code
         print("executed method2")
-        device_client.send_method_response(method_call, result, status)  # send response
+        device_client.send_method_response(method_call, payload, status)  # send response
 
 
 def generic_method_listener(device_client):
     while True:
         method_call = device_client.receive_method()  # Wait for unknown method calls
-        result = False  # set some result
+        payload = json.dumps({"result": False, "data": "unknown method"})  # set response payload
         status = 400  # set return status code
         print("executed unknown method: " + method_call.name)
-        device_client.send_method_response(method_call, result, status)  # send response
+        device_client.send_method_response(method_call, payload, status)  # send response
 
 
 # Run method listener threads in the background
@@ -73,9 +74,9 @@ generic_method_thread.start()
 
 # Wait for user to indicate they are done listening for messages
 while True:
-    selection = input("Press Q: Quit for exiting\n")
+    selection = input("Press Q to exit\n")
     if selection == "Q" or selection == "q":
-        print("Quitting")
+        print("Quitting...")
         break
 
 

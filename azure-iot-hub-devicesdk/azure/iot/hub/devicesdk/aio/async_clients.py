@@ -105,22 +105,19 @@ class GenericClientAsync(GenericClient):
         if not self._transport.feature_enabled[constant.METHODS]:
             await self._enable_feature(constant.METHODS)
 
-        if method_name:
-            method_inbox = self._inbox_manager.get_named_method_call_inbox(method_name)
-        else:
-            method_inbox = self._inbox_manager.get_generic_method_call_inbox()
+        method_inbox = self._inbox_manager.get_method_call_inbox(method_name)
 
         logger.info("Waiting for method call...")
         method_call = await method_inbox.get()
         logger.info("Received method call")
         return method_call
 
-    async def send_method_response(self, method, result, status):
+    async def send_method_response(self, method, payload, status):
         """Send a response to a method call via the Azure IoT Hub or Azure IoT Edge Hub.
 
         :param method: MethodCall object representing the method call being responded to.
-        :param result: The desired result for the method call.
-        :param int status: The desired return status code for the method call.
+        :param payload: The desired payload for the method call response.
+        :param int status: The desired return status code for the method call response.
         """
         logger.info("Sending method response to Hub...")
         send_method_response_async = async_adapter.emulate_async(
@@ -132,8 +129,8 @@ class GenericClientAsync(GenericClient):
 
         callback = async_adapter.AwaitableCallback(sync_callback)
 
-        # maybe consolidate method, result and status into a new object
-        await send_method_response_async(method, result, status, callback=callback)
+        # TODO: maybe consolidate method, result and status into a new object
+        await send_method_response_async(method, payload, status, callback=callback)
         await callback.completion()
 
     async def _enable_feature(self, feature_name):

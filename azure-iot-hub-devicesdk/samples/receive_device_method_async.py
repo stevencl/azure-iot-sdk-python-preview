@@ -6,9 +6,10 @@
 
 import os
 import asyncio
-from six.moves import input
+import json
 import logging
 import threading
+from six.moves import input
 from azure.iot.hub.devicesdk.aio import DeviceClient
 from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 
@@ -31,33 +32,35 @@ async def main():
     async def method1_listener(device_client):
         while True:
             method_call = await device_client.receive_method("method1")  # Wait for method1 calls
-            result = True  # set some result
+            payload = json.dumps({"result": True, "data": "some data"})  # set response payload
             status = 200  # set return status code
             print("executed method1")
-            await device_client.send_method_response(method_call, result, status)  # send response
+            await device_client.send_method_response(method_call, payload, status)  # send response
 
     async def method2_listener(device_client):
         while True:
             method_call = await device_client.receive_method("method2")  # Wait for method2 calls
-            result = True  # set some result
+            payload = json.dumps({"result": True, "data": 1234})  # set response payload
             status = 200  # set return status code
             print("executed method2")
-            await device_client.send_method_response(method_call, result, status)  # send response
+            await device_client.send_method_response(method_call, payload, status)  # send response
 
     async def generic_method_listener(device_client):
         while True:
             method_call = await device_client.receive_method()  # Wait for unknown method calls
-            result = False  # set some result
+            payload = json.dumps(
+                {"result": False, "data": "unknown method"}  # set response payload
+            )
             status = 400  # set return status code
             print("executed unknown method: " + method_call.name)
-            await device_client.send_method_response(method_call, result, status)  # send response
+            await device_client.send_method_response(method_call, payload, status)  # send response
 
     # define behavior for halting the application
     def stdin_listener():
         while True:
-            selection = input("Press Q: Quit for exiting\n")
+            selection = input("Press Q to exit\n")
             if selection == "Q" or selection == "q":
-                print("Quitting")
+                print("Quitting...")
                 break
 
     # Schedule tasks for Method Listener

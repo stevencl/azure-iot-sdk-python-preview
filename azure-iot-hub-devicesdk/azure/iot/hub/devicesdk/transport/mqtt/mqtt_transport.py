@@ -386,8 +386,7 @@ class MQTTTransport(AbstractTransport):
     def send_output_event(self, message, callback=None):
         self._trig_send_event(message, callback)
 
-    # consider changing this signature
-    def send_method_response(self, method, result, status, callback=None):
+    def send_method_response(self, method, payload, status, callback=None):
         raise NotImplementedError
 
     def _on_shared_access_string_updated(self):

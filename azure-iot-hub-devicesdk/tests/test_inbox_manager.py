@@ -63,25 +63,17 @@ class InboxManagerSharedTests(object):
         assert input_inbox1 in manager.input_message_inboxes.values()
 
     @pytest.mark.skip(reason="Not Implemented")
-    def test_get_generic_method_call_inbox_returns_inbox(self, manager):
+    def test_get_method_call_inbox_returns_expected_inbox(self, manager):
         pass
 
     @pytest.mark.skip(reason="Not Implemented")
-    def test_get_generic_method_call_inbox_called_multiple_times_returns_same_inbox(self, manager):
-        pass
-
-    @pytest.mark.skip(reason="Not Implemented")
-    def test_get_named_method_call_inbox_returns_inbox(self, manager):
-        pass
-
-    @pytest.mark.skip(reason="Not Implemented")
-    def test_get_named_method_call_inbox_called_multiple_times_with_same_method_name_returns_same_inbox(
+    def test_get_method_call_inbox_called_multiple_times_with_same_method_name_returns_same_inbox(
         self, manager
     ):
         pass
 
     @pytest.mark.skip(reason="Not Implemented")
-    def test_get_named_method_call_inbox_called_multiple_times_with_different_method_name_returns_different_inbox(
+    def test_get_method_call_inbox_called_multiple_times_with_different_method_name_returns_different_inbox(
         self, manager
     ):
         pass
