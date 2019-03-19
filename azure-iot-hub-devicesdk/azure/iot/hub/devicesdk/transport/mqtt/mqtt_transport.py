@@ -456,7 +456,8 @@ class MQTTTransport(AbstractTransport):
 
         elif isinstance(action, MethodReponseAction):
             logger.info("running MethodResponseAction")
-            topic = "TODO"
+            # TODO: extract request id and status
+            topic = self._get_method_topic_for_publish(None, None)
             mid = self._mqtt_provider.publish(topic, action.method_response)
             self._in_progress_actions[mid] = action.callback
 
@@ -551,10 +552,17 @@ class MQTTTransport(AbstractTransport):
 
     def _get_method_topic_for_subscribe(self):
         """
-        :return: The topic for methods. It is of the format
+        :return: The topic for ALL incoming methods. It is of the format
         "$iothub/methods/POST/#"
         """
         return "$iothub/methods/POST/#"
+
+    def _get_method_topic_for_publish(self, request_id, status):
+        """
+        :return: The topic for publishing method responses. It is of the format
+        "$iothub/methods/res/<status>/?$rid=<requestId>
+        """
+        return "$iothub/methods/res/" + status + "/?$rid=" + request_id
 
     def connect(self, callback=None):
         """
@@ -600,7 +608,9 @@ class MQTTTransport(AbstractTransport):
 
         TODO: parameter docs
         """
-        raise NotImplementedError
+        method_response = None  # TODO: figure out how to build a method response
+        action = MethodReponseAction(method_response, callback)
+        self._trig_add_action_to_pending_queue(action, self._pending_action_queue)
 
     def _on_shared_access_string_updated(self):
         """
