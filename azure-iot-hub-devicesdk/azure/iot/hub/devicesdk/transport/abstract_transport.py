@@ -17,7 +17,11 @@ class AbstractTransport:
 
     def __init__(self, auth_provider):
         self._auth_provider = auth_provider
-        self.feature_enabled = {constant.C2D_MSG: False, constant.INPUT_MSG: False}
+        self.feature_enabled = {
+            constant.C2D_MSG: False,
+            constant.INPUT_MSG: False,
+            constant.METHODS: False,
+        }
 
     @abc.abstractmethod
     def connect(self, callback):

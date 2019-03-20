@@ -31,7 +31,9 @@ async def main():
     # define behavior for handling methods
     async def method1_listener(device_client):
         while True:
-            method_request = await device_client.receive_method("method1")  # Wait for method1 calls
+            method_request = await device_client.receive_method_request(
+                "method1"
+            )  # Wait for method1 calls
             payload = json.dumps({"result": True, "data": "some data"})  # set response payload
             status = 200  # set return status code
             print("executed method1")
@@ -41,7 +43,9 @@ async def main():
 
     async def method2_listener(device_client):
         while True:
-            method_request = await device_client.receive_method("method2")  # Wait for method2 calls
+            method_request = await device_client.receive_method_request(
+                "method2"
+            )  # Wait for method2 calls
             payload = json.dumps({"result": True, "data": 1234})  # set response payload
             status = 200  # set return status code
             print("executed method2")
@@ -51,7 +55,9 @@ async def main():
 
     async def generic_method_listener(device_client):
         while True:
-            method_request = await device_client.receive_method()  # Wait for unknown method calls
+            method_request = (
+                await device_client.receive_method_request()
+            )  # Wait for unknown method calls
             payload = json.dumps(
                 {"result": False, "data": "unknown method"}  # set response payload
             )
