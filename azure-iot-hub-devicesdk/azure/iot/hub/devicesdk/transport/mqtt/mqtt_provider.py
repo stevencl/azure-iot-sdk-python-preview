@@ -48,6 +48,8 @@ class MQTTProvider(object):
 
         self._mqtt_client = mqtt.Client(self._client_id, False, protocol=mqtt.MQTTv311)
 
+        self._mqtt_client.enable_logger(logging.getLogger("paho"))
+
         def on_connect_callback(client, userdata, flags, result_code):
             logger.info("connected with result code: %s", str(result_code))
             # TODO: how to do failed connection?
@@ -157,6 +159,8 @@ class MQTTProvider(object):
         """
         logger.info("sending")
         message_info = self._mqtt_client.publish(topic=topic, payload=message_payload, qos=1)
+        if message_info.rc != mqtt.MQTT_ERR_SUCCESS:
+            raise Exception(mqtt.error_string(message_info.rc))
         return message_info.mid
 
     def subscribe(self, topic, qos=0):
@@ -169,6 +173,8 @@ class MQTTProvider(object):
         """
         logger.info("subscribing to %s with qos %s", topic, str(qos))
         (result, mid) = self._mqtt_client.subscribe(topic, qos)
+        if result != mqtt.MQTT_ERR_SUCCESS:
+            raise Exception(mqtt.error_string(result))
         return mid
 
     def unsubscribe(self, topic):
@@ -180,4 +186,6 @@ class MQTTProvider(object):
         """
         logger.info("unsubscribing from %s", topic)
         (result, mid) = self._mqtt_client.unsubscribe(topic)
+        if result != mqtt.MQTT_ERR_SUCCESS:
+            raise Exception(mqtt.error_string(result))
         return mid
