@@ -24,7 +24,7 @@ def create_from_security_provider(provisioning_host, security_client, transport_
     """
     if not provisioning_host:
         raise ValueError("Provisioning Host must be provided.")
-
+    transport_choice = transport_choice.lower()
     if transport_choice == "mqtt":
         if isinstance(security_client, SymmetricKeySecurityClient):
             mqtt_transport = MQTTTransport(provisioning_host, security_client)
@@ -32,6 +32,8 @@ def create_from_security_provider(provisioning_host, security_client, transport_
             # TODO : other instances of security provider can also be checked before creating mqtt
         else:
             raise ValueError(
-                " A symmetric key security provider must be provided for instantiating MQTT"
+                "A symmetric key security provider must be provided for instantiating MQTT"
             )
+    else:
+        raise NotImplementedError("This transport has not yet been implemented")
         # TODO : Message must be enhanced later for other security providers. MQTT can also support X509.
