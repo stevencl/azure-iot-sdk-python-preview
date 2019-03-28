@@ -23,6 +23,13 @@ class AbstractTransport:
             constant.METHODS: False,
         }
 
+        # Event Handlers - Will be set by Client after instantiation of Transport
+        self.on_transport_connected = None
+        self.on_transport_disconnected = None
+        self.on_transport_c2d_message_received = None
+        self.on_transport_input_message_received = None
+        self.on_transport_method_request_received = None
+
     @abc.abstractmethod
     def connect(self, callback):
         """
