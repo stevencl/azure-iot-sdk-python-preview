@@ -756,13 +756,11 @@ def _is_input_topic(split_topic_str):
 def _is_method_topic(split_topic_str):
     """
     Topics for methods are of the following format:
-    "methods/POST/#"
+    "$iothub/methods/POST/<methodName>"
 
     :param split_topic_str: The already split received topic string.
     """
-    if (
-        "methods" in split_topic_str and len(split_topic_str) > 2
-    ):  # TODO: verify this len check is right
+    if "$iothub/methods/POST" in split_topic_str and len(split_topic_str) > 3:
         return True
     return False
 
