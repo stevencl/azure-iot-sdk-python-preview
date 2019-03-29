@@ -1,15 +1,13 @@
 import os
 import logging
-from azure.iot.provisioning.devicessdk.security.sk_security_client import SymmetricKeySecurityClient
-from azure.iot.provisioning.devicessdk.device.registration_client_factory import (
+from azure.iot.provisioning.devicesdk.security.sk_security_client import SymmetricKeySecurityClient
+from azure.iot.provisioning.devicesdk.device.registration_client_factory import (
     create_from_security_provider,
 )
-from azure.iot.hub.devicesdk import DeviceClient
-from azure.iot.hub.devicesdk.auth.authentication_provider_factory import from_connection_string
 
 import time
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")
@@ -42,6 +40,7 @@ while True:
     selection = input("Press Q: Quit for exiting\n")
     if selection == "Q" or selection == "q":
         print("Quitting")
+        registration_client.disconnect()
         break
 
 
