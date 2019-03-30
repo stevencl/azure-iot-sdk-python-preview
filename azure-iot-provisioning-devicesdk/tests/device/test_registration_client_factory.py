@@ -41,7 +41,7 @@ def test_create_from_security_provider_instantiates_client(
     client = create_from_security_provider(provisioning_host, security_client, protocol)
     assert isinstance(client, SymmetricKeyRegistrationClient)
     assert isinstance(client._transport, expected_transport)
-    assert client._transport.on_registration_complete is not None
+    assert client._transport.on_transport_registration_complete is not None
 
 
 def test_raises_when_client_created_from_no_host(security_client):

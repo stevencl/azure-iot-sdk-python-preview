@@ -7,7 +7,7 @@ from azure.iot.provisioning.devicesdk.device.registration_client_factory import 
 
 import time
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 provisioning_host = os.getenv("PROVISIONING_HOST")
 id_scope = os.getenv("PROVISIONING_IDSCOPE")

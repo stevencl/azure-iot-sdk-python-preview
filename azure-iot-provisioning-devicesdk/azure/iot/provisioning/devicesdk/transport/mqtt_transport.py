@@ -6,10 +6,15 @@
 
 import uuid
 import logging
-import queue
+import six.moves.queue as queue
 import six.moves.urllib as urllib
 from transitions import Machine
-from . import device_provisioning_constant
+from .device_provisioning_constant import (
+    USER_AGENT,
+    API_VERSION,
+    SUBSCRIBE_TOPIC_PROVISIONING,
+    PUBLISH_TOPIC_REGISTRATION,
+)
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider import MQTTProvider
 from . import transport_action
 from .symmetric_key_transport import SymmetricKeyTransport
@@ -78,6 +83,7 @@ class MQTTTransport(object):
             {
                 "trigger": "_trig_disconnect",
                 "source": "connected",
+                "before": "_execute_unsubscribe",
                 "dest": "disconnecting",
                 "after": "_call_provider_disconnect",
             },
@@ -116,14 +122,16 @@ class MQTTTransport(object):
             queued=True,
         )
 
+        self._state_machine.on_enter_disconnecting("_execute_actions_in_queue")
+
     def send_registration_request(self, callback_subscribe=None, callback_request=None):
         logger.info("Sending registration request")
         subscribe_action = transport_action.SubscribeAction(
-            subscribe_topic="$dps/registrations/res/#", qos=1, callback=callback_subscribe
+            subscribe_topic=SUBSCRIBE_TOPIC_PROVISIONING, qos=1, callback=callback_subscribe
         )
         rid = uuid.uuid4()
         request_action = transport_action.SendRegistrationAction(
-            publish_topic="$dps/registrations/PUT/iotdps-register/?$rid=" + str(rid),
+            publish_topic=PUBLISH_TOPIC_REGISTRATION + str(rid),
             request=" ",
             callback=callback_request,
         )
@@ -143,19 +151,22 @@ class MQTTTransport(object):
     #     self._connect_callback = callback
     #     self._trig_connect()
 
-    def disconnect(self, callback=None):
+    def disconnect(self, callback_disconnect=None, callback_unsubscribe=None):
         """
         Disconnect from the service.
 
-        :param callback: callback which is called when the connection to the service has been disconnected
+        :param callback_disconnect: callback which is called when the connection to the service has been disconnected
         """
         logger.info("disconnect called")
-        self._disconnect_callback = callback
-        self._trig_disconnect()
+        self._disconnect_callback = callback_disconnect
+        action = transport_action.UnsubscribeAction(
+            SUBSCRIBE_TOPIC_PROVISIONING, callback=callback_unsubscribe
+        )
+        self._trig_disconnect(action)
 
     def _call_provider_connect(self, event_data):
         logger.info("Calling provider connect")
-        password = self.get_current_sas_token()
+        password = self._get_current_sas_token()
         self._mqtt_provider.connect(password)
 
     def _call_provider_disconnect(self, event_data):
@@ -168,6 +179,10 @@ class MQTTTransport(object):
         """
         logger.info("Calling provider disconnect")
         self._mqtt_provider.disconnect()
+
+    def _execute_unsubscribe(self, event_data):
+        action = event_data.args[0]
+        self._execute_action(action)
 
     def _add_action_to_queue(self, event_data):
         """
@@ -227,8 +242,17 @@ class MQTTTransport(object):
             else:
                 self._in_progress_actions[mid] = action.callback
 
+        elif isinstance(action, transport_action.UnsubscribeAction):
+            logger.info("running UnsubscribeAction")
+            mid = self._mqtt_provider.unsubscribe(action.topic)
+            if mid in self._responses_with_unknown_mid:
+                del self._responses_with_unknown_mid[mid]
+                action.callback()
+            else:
+                self._in_progress_actions[mid] = action.callback
+
         else:
-            logger.error("Execute not called for unknown action type from queue.")
+            logger.info("Execute not called for unknown action type from queue.")
 
     def _create_mqtt_provider(self):
         client_id = self._security_client.registration_id
@@ -238,9 +262,9 @@ class MQTTTransport(object):
             + "/registrations/"
             + self._security_client.registration_id
             + "/api-version="
-            + device_provisioning_constant.API_VERSION
+            + API_VERSION
             + "&ClientVersion="
-            + urllib.parse.quote_plus(device_provisioning_constant.USER_AGENT)
+            + urllib.parse.quote_plus(USER_AGENT)
         )
 
         hostname = self._provisioning_host
@@ -251,7 +275,8 @@ class MQTTTransport(object):
         self._mqtt_provider.on_mqtt_disconnected = self._on_provider_disconnect_complete
         self._mqtt_provider.on_mqtt_published = self._on_provider_publish_complete
         self._mqtt_provider.on_mqtt_subscribed = self._on_provider_subscribe_complete
-        self._mqtt_provider.on_mqtt_message_received = self.on_provider_message_received_callback
+        self._mqtt_provider.on_mqtt_unsubscribed = self._on_provider_unsubscribe_complete
+        self._mqtt_provider.on_mqtt_message_received = self._on_provider_message_received_callback
 
     def _on_provider_connect_complete(self):
         """
@@ -288,6 +313,7 @@ class MQTTTransport(object):
         :param mid: message id that was returned by the provider when `publish` was called.  This is used to tie the
             PUBLISH to the PUBACK.
         """
+        logger.info("_on_provider_publish_complete")
         if mid in self._in_progress_actions:
             callback = self._in_progress_actions[mid]
             del self._in_progress_actions[mid]
@@ -305,6 +331,7 @@ class MQTTTransport(object):
         :param mid: message id that was returned by the provider when `subscribe` was called.  This is used to tie the
             SUBSCRIBE to the SUBACK.
         """
+        logger.info("_on_provider_subscribe_complete")
         if mid in self._in_progress_actions:
             callback = self._in_progress_actions[mid]
             del self._in_progress_actions[mid]
@@ -315,12 +342,30 @@ class MQTTTransport(object):
                 mid
             ] = mid  # storing MID for now.  will probably store result code later.
 
-    def on_provider_message_received_callback(self, topic, payload):
+    def _on_provider_unsubscribe_complete(self, mid):
+        """
+        Callback that is called by the provider when it receives an UNSUBACK from the service
+
+        :param mid: message id that was returned by the provider when `unsubscribe` was called.  This is used to tie the
+            UNSUBSCRIBE to the UNSUBACK.
+        """
+        logger.info("_on_provider_unsubscribe_complete")
+        if mid in self._in_progress_actions:
+            callback = self._in_progress_actions[mid]
+            del self._in_progress_actions[mid]
+            callback()
+        else:
+            logger.warning("UNSUBACK received with unknown MID: %s", str(mid))
+            self._responses_with_unknown_mid[
+                mid
+            ] = mid  # storing MID for now.  will probably store result code later.
+
+    def _on_provider_message_received_callback(self, topic, payload):
         logger.info("Message received on topic %s", topic)
         logger.info("Message has been received")
         self.on_transport_registration_complete(topic, payload)
 
-    def get_current_sas_token(self):
+    def _get_current_sas_token(self):
         """
         Set the current Shared Access Signature Token string.
         """

@@ -35,13 +35,13 @@ class SymmetricKeyRegistrationClient(RegistrationClient):
         subscribe_complete = Event()
         send_request_complete = Event()
 
-        def callback_request():
-            send_request_complete.set()
-            logger.info("Successfully sent request to Hub")
-
         def callback_subscribe():
             subscribe_complete.set()
             logger.info("Successfully subscribed to Hub")
+
+        def callback_request():
+            send_request_complete.set()
+            logger.info("Successfully sent request to Hub")
 
         self._transport.send_registration_request(
             callback_subscribe=callback_subscribe, callback_request=callback_request
@@ -53,7 +53,24 @@ class SymmetricKeyRegistrationClient(RegistrationClient):
         pass
 
     def disconnect(self):
-        self._transport.disconnect()
+        logger.info("Disconnecting from IoT Hub...")
+        unsubscribe_complete = Event()
+        disconnect_complete = Event()
+
+        def callback_unsubscribe():
+            unsubscribe_complete.set()
+            logger.info("Successfully unsubscribed from IoT Hub")
+
+        def callback_disconnect():
+            disconnect_complete.set()
+            logger.info("Successfully disconnected from IoT Hub")
+
+        self._transport.disconnect(
+            callback_disconnect=callback_disconnect, callback_unsubscribe=callback_unsubscribe
+        )
+
+        # unsubscribe_complete.wait()
+        disconnect_complete.wait()
 
     def on_device_registration_complete(self, topic, payload):
         """Handler to be called by the transport when registration is done change."""

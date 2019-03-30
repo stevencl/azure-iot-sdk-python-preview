@@ -22,11 +22,30 @@ def security_client():
     return SymmetricKeySecurityClient("fake_registration_id", "fake_symmetric_key", "fake_id_scope")
 
 
-def test_client_register_calls_transport_register(provisioning_host, security_client, mocker):
-    mock_transport = mocker.MagicMock(wraps=MQTTTransport)
-    mocker.patch.object(mock_transport, "send_registration_request")
-    client = SymmetricKeyRegistrationClient(mock_transport)
+class FakeMQTTTransport(MQTTTransport):
+    def disconnect(self, callback_subscribe, callback_request):
+        callback_subscribe()
+        callback_request()
+
+    def send_registration_request(self, callback_disconnect, callback_unsubscribe):
+        callback_disconnect()
+        callback_unsubscribe()
+
+    def query_operation_status(self):
+        pass
+
+
+@pytest.fixture
+def transport(mocker):
+    return mocker.MagicMock(wraps=FakeMQTTTransport(mocker.MagicMock()))
+
+
+def test_client_register_calls_transport_register(
+    provisioning_host, security_client, transport, mocker
+):
+    # mocker.patch.object(mock_transport, "send_registration_request")
+    client = SymmetricKeyRegistrationClient(transport)
 
     client.register()
 
-    assert mock_transport.send_registration_request.call_count == 1
+    assert transport.send_registration_request.call_count == 1
