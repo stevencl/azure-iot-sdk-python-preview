@@ -46,8 +46,7 @@ class SymmetricKeyRegistrationClient(RegistrationClient):
         self._transport.send_registration_request(
             callback_subscribe=callback_subscribe, callback_request=callback_request
         )
-        subscribe_complete.wait()
-        send_request_complete.wait()
+        subscribe_complete.wait() and send_request_complete.wait()
 
     def cancel(self):
         pass

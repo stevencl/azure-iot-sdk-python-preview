@@ -23,13 +23,13 @@ def security_client():
 
 
 class FakeMQTTTransport(MQTTTransport):
-    def disconnect(self, callback_subscribe, callback_request):
+    def disconnect(self, callback_disconnect, callback_unsubscribe):
+        callback_unsubscribe()
+        callback_disconnect()
+
+    def send_registration_request(self, callback_subscribe, callback_request):
         callback_subscribe()
         callback_request()
-
-    def send_registration_request(self, callback_disconnect, callback_unsubscribe):
-        callback_disconnect()
-        callback_unsubscribe()
 
     def query_operation_status(self):
         pass
@@ -37,7 +37,7 @@ class FakeMQTTTransport(MQTTTransport):
 
 @pytest.fixture
 def transport(mocker):
-    return mocker.MagicMock(wraps=FakeMQTTTransport(mocker.MagicMock()))
+    return mocker.MagicMock(wraps=FakeMQTTTransport(mocker.MagicMock(), mocker.MagicMock()))
 
 
 def test_client_register_calls_transport_register(
