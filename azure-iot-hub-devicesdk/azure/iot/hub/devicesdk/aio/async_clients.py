@@ -14,7 +14,7 @@ from azure.iot.hub.devicesdk.abstract_clients import (
     AbstractDeviceClient,
     AbstractModuleClient,
 )
-from azure.iot.hub.devicesdk.common import Message
+from azure.iot.hub.devicesdk.models import Message
 from azure.iot.hub.devicesdk.transport import constant
 from azure.iot.hub.devicesdk.inbox_manager import InboxManager
 from .async_inbox import AsyncClientInbox

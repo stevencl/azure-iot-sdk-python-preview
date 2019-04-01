@@ -9,7 +9,7 @@ import sys
 import six
 import abc
 from azure.iot.hub.devicesdk.inbox_manager import InboxManager
-from azure.iot.hub.devicesdk.common import Message, MethodRequest
+from azure.iot.hub.devicesdk.models import Message, MethodRequest
 from azure.iot.hub.devicesdk.sync_inbox import SyncClientInbox
 
 

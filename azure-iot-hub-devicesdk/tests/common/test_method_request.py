@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.hub.devicesdk.common import MethodRequest
+from azure.iot.hub.devicesdk.models import MethodRequest
 
 
 class TestMethodRequest(object):

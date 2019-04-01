@@ -11,7 +11,7 @@ import logging
 from threading import Event
 from .abstract_clients import AbstractClient, AbstractDeviceClient, AbstractModuleClient
 from .transport import constant
-from .common import Message
+from .models import Message
 from .inbox_manager import InboxManager
 from .sync_inbox import SyncClientInbox
 

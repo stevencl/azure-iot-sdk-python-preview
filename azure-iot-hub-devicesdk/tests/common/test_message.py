@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.hub.devicesdk.common import Message
+from azure.iot.hub.devicesdk.models import Message
 
 
 class TestMessage(object):

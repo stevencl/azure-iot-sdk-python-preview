@@ -12,7 +12,7 @@ from .mqtt_provider import MQTTProvider
 from transitions import Machine
 from azure.iot.hub.devicesdk.transport.abstract_transport import AbstractTransport
 from azure.iot.hub.devicesdk.transport import constant
-from azure.iot.hub.devicesdk.common import Message, MethodRequest
+from azure.iot.hub.devicesdk.models import Message, MethodRequest
 
 
 """
@@ -471,7 +471,7 @@ class MQTTTransport(AbstractTransport):
 
         elif isinstance(action, MethodReponseAction):
             logger.info("running MethodResponseAction")
-            topic = "TODO"
+            topic = self._get_method_topic_for_publish()
             mid = self._mqtt_provider.publish(topic, action.method_response)
             if mid in self._responses_with_unknown_mid:
                 del self._responses_with_unknown_mid[mid]
