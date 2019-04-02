@@ -25,7 +25,7 @@ class SymmetricKeyRegistrationClient(RegistrationClient):
         RegistrationClient.__init__(self, transport)
         self._transport.on_transport_connected = self._on_state_change
         self._transport.on_transport_disconnected = self._on_state_change
-        self._transport.on_transport_registration_complete = self.on_device_registration_complete
+        self._transport.on_transport_registration_update = self._on_device_registration_update
 
     def register(self):
         """
@@ -49,9 +49,15 @@ class SymmetricKeyRegistrationClient(RegistrationClient):
         subscribe_complete.wait() and send_request_complete.wait()
 
     def cancel(self):
+        """
+        Cancels the current registration process.
+        """
         pass
 
     def disconnect(self):
+        """
+        Disconnects the registration client from the IoT Hub
+        """
         logger.info("Disconnecting from IoT Hub...")
         unsubscribe_complete = Event()
         disconnect_complete = Event()
@@ -71,8 +77,8 @@ class SymmetricKeyRegistrationClient(RegistrationClient):
         # unsubscribe_complete.wait()
         disconnect_complete.wait()
 
-    def on_device_registration_complete(self, topic, payload):
-        """Handler to be called by the transport when registration is done change."""
+    def _on_device_registration_update(self, topic, payload):
+        """Handler to be called by the transport when registration changes status."""
         logger.info("on_device_registration_complete")
         self.on_registration_complete(topic, payload)
 

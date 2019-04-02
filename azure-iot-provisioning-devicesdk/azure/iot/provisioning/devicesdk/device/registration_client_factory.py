@@ -12,7 +12,7 @@ from ..transport.mqtt_transport import MQTTTransport
 from .sk_registration_client import SymmetricKeyRegistrationClient
 
 
-def create_from_security_provider(provisioning_host, security_client, transport_choice):
+def create_from_security_client(provisioning_host, security_client, transport_choice):
     """
     Creates different types of registration clients which can enable devices to communicate with Device Provisioning
     Service based on parameters passed.

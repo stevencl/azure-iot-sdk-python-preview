@@ -9,15 +9,9 @@ import logging
 import six.moves.queue as queue
 import six.moves.urllib as urllib
 from transitions import Machine
-from .device_provisioning_constant import (
-    USER_AGENT,
-    API_VERSION,
-    SUBSCRIBE_TOPIC_PROVISIONING,
-    PUBLISH_TOPIC_REGISTRATION,
-)
+from . import constant
 from azure.iot.hub.devicesdk.transport.mqtt.mqtt_provider import MQTTProvider
 from . import transport_action
-from .symmetric_key_transport import SymmetricKeyTransport
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +24,7 @@ class MQTTTransport(object):
         # Event Handlers - Will be set by Client after instantiation of Transport
         self.on_transport_connected = None
         self.on_transport_disconnected = None
+        self.on_transport_registration_update = None
 
         self._pending_action_queue = queue.Queue()
         self._in_progress_actions = {}
@@ -127,11 +122,13 @@ class MQTTTransport(object):
     def send_registration_request(self, callback_subscribe=None, callback_request=None):
         logger.info("Sending registration request")
         subscribe_action = transport_action.SubscribeAction(
-            subscribe_topic=SUBSCRIBE_TOPIC_PROVISIONING, qos=1, callback=callback_subscribe
+            subscribe_topic=constant.SUBSCRIBE_TOPIC_PROVISIONING,
+            qos=1,
+            callback=callback_subscribe,
         )
         rid = uuid.uuid4()
         request_action = transport_action.SendRegistrationAction(
-            publish_topic=PUBLISH_TOPIC_REGISTRATION + str(rid),
+            publish_topic=constant.PUBLISH_TOPIC_REGISTRATION + str(rid),
             request=" ",
             callback=callback_request,
         )
@@ -160,7 +157,7 @@ class MQTTTransport(object):
         logger.info("disconnect called")
         self._disconnect_callback = callback_disconnect
         action = transport_action.UnsubscribeAction(
-            SUBSCRIBE_TOPIC_PROVISIONING, callback=callback_unsubscribe
+            constant.SUBSCRIBE_TOPIC_PROVISIONING, callback=callback_unsubscribe
         )
         self._trig_disconnect(action)
 
@@ -262,9 +259,9 @@ class MQTTTransport(object):
             + "/registrations/"
             + self._security_client.registration_id
             + "/api-version="
-            + API_VERSION
+            + constant.API_VERSION
             + "&ClientVersion="
-            + urllib.parse.quote_plus(USER_AGENT)
+            + urllib.parse.quote_plus(constant.USER_AGENT)
         )
 
         hostname = self._provisioning_host
@@ -276,7 +273,7 @@ class MQTTTransport(object):
         self._mqtt_provider.on_mqtt_published = self._on_provider_publish_complete
         self._mqtt_provider.on_mqtt_subscribed = self._on_provider_subscribe_complete
         self._mqtt_provider.on_mqtt_unsubscribed = self._on_provider_unsubscribe_complete
-        self._mqtt_provider.on_mqtt_message_received = self._on_provider_message_received_callback
+        self._mqtt_provider.on_mqtt_message_received = self._on_provider_message_received
 
     def _on_provider_connect_complete(self):
         """
@@ -360,10 +357,11 @@ class MQTTTransport(object):
                 mid
             ] = mid  # storing MID for now.  will probably store result code later.
 
-    def _on_provider_message_received_callback(self, topic, payload):
+    def _on_provider_message_received(self, topic, payload):
         logger.info("Message received on topic %s", topic)
         logger.info("Message has been received")
-        self.on_transport_registration_complete(topic, payload)
+        if self.on_transport_registration_update:
+            self.on_transport_registration_update(topic, payload)
 
     def _get_current_sas_token(self):
         """

@@ -7,7 +7,7 @@
 import abc
 import six
 
-
+# TODO Delete after another auth mechanism other than Symmetric Key is done.
 @six.add_metaclass(abc.ABCMeta)
 class SymmetricKeyTransport(object):
     """

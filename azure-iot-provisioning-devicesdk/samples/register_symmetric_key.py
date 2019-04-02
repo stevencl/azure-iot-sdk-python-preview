@@ -4,7 +4,7 @@ import time
 from six.moves import input
 from azure.iot.provisioning.devicesdk.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.provisioning.devicesdk.device.registration_client_factory import (
-    create_from_security_provider,
+    create_from_security_client,
 )
 
 
@@ -16,11 +16,9 @@ registration_id = os.getenv("PROVISIONING_REGISTRATION_ID")
 symmetric_key = os.getenv("PROVISIONING_SYMMETRIC_KEY")
 
 
-symmetric_key_security_provider = SymmetricKeySecurityClient(
-    registration_id, symmetric_key, id_scope
-)
-registration_client = create_from_security_provider(
-    provisioning_host, symmetric_key_security_provider, "mqtt"
+symmetric_key_security_client = SymmetricKeySecurityClient(registration_id, symmetric_key, id_scope)
+registration_client = create_from_security_client(
+    provisioning_host, symmetric_key_security_client, "mqtt"
 )
 
 

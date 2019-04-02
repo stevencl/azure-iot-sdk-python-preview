@@ -18,14 +18,14 @@ USER_AGENT = "azure-iot-provisioning-devicesdk" + "/" + "0.0.1"
 """
 Default interval for polling, to use in case service doesn't provide it to us.
 """
-POLLING_INTERVAL = 2000
+DEFAULT_POLLING_INTERVAL = 2000
 
 """
 api version to use while communicating with service.
 """
 API_VERSION = "2018-11-01"
 """
-Timeout to use when communicating with the service
+Default timeout to use when communicating with the service
 """
 DEFAULT_TIMEOUT = 30000
 
