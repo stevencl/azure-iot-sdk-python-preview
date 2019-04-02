@@ -5,7 +5,7 @@
 # --------------------------------------------------------------------------
 
 import pytest
-from azure.iot.provisioning.devicesdk.device.registration_client import RegistrationClient
+from azure.iot.provisioning.devicesdk.registration_client import RegistrationClient
 
 
 def test_raises_exception_on_init_of_abstract_transport(mocker):

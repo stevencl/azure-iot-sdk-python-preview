@@ -7,9 +7,7 @@
 import pytest
 from azure.iot.provisioning.devicesdk.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.provisioning.devicesdk.transport.mqtt_transport import MQTTTransport
-from azure.iot.provisioning.devicesdk.device.sk_registration_client import (
-    SymmetricKeyRegistrationClient,
-)
+from azure.iot.provisioning.devicesdk.sk_registration_client import SymmetricKeyRegistrationClient
 
 
 @pytest.fixture
@@ -40,12 +38,8 @@ def transport(mocker):
     return mocker.MagicMock(wraps=FakeMQTTTransport(mocker.MagicMock(), mocker.MagicMock()))
 
 
-def test_client_register_calls_transport_register(
-    provisioning_host, security_client, transport, mocker
-):
-    # mocker.patch.object(mock_transport, "send_registration_request")
+def test_client_register_calls_transport_register(provisioning_host, security_client, transport):
     client = SymmetricKeyRegistrationClient(transport)
-
     client.register()
 
     assert transport.send_registration_request.call_count == 1

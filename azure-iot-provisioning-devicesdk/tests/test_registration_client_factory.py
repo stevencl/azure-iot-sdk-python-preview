@@ -6,12 +6,8 @@
 import pytest
 from azure.iot.provisioning.devicesdk.security.sk_security_client import SymmetricKeySecurityClient
 from azure.iot.provisioning.devicesdk.transport.mqtt_transport import MQTTTransport
-from azure.iot.provisioning.devicesdk.device.sk_registration_client import (
-    SymmetricKeyRegistrationClient,
-)
-from azure.iot.provisioning.devicesdk.device.registration_client_factory import (
-    create_from_security_client,
-)
+from azure.iot.provisioning.devicesdk.sk_registration_client import SymmetricKeyRegistrationClient
+from azure.iot.provisioning.devicesdk.registration_client_factory import create_from_security_client
 
 
 xfail_notimplemented = pytest.mark.xfail(raises=NotImplementedError, reason="Unimplemented")
@@ -41,7 +37,7 @@ def test_create_from_security_provider_instantiates_client(
     client = create_from_security_client(provisioning_host, security_client, protocol)
     assert isinstance(client, SymmetricKeyRegistrationClient)
     assert isinstance(client._transport, expected_transport)
-    assert client._transport.on_transport_registration_complete is not None
+    assert client._transport.on_transport_registration_update is not None
 
 
 def test_raises_when_client_created_from_no_host(security_client):

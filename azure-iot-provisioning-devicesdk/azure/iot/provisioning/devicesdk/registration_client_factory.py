@@ -7,8 +7,8 @@
 This module provides factory methods for creating clients which would
 communicate with Device Provisioning Service.
 """
-from ..security.sk_security_client import SymmetricKeySecurityClient
-from ..transport.mqtt_transport import MQTTTransport
+from .security.sk_security_client import SymmetricKeySecurityClient
+from .transport.mqtt_transport import MQTTTransport
 from .sk_registration_client import SymmetricKeyRegistrationClient
 
 

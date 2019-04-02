@@ -3,9 +3,7 @@ import logging
 import time
 from six.moves import input
 from azure.iot.provisioning.devicesdk.security.sk_security_client import SymmetricKeySecurityClient
-from azure.iot.provisioning.devicesdk.device.registration_client_factory import (
-    create_from_security_client,
-)
+from azure.iot.provisioning.devicesdk.registration_client_factory import create_from_security_client
 
 
 logging.basicConfig(level=logging.ERROR)
